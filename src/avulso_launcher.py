@@ -137,8 +137,7 @@ def parse_avulso_command(texto: str) -> Dict[str, Any]:
         dados["campos_faltantes"].append("fornecedor")
     if not dados["valor"] or dados["valor"] <= 0:
         dados["campos_faltantes"].append("valor")
-    if not dados["referencia"]:
-        dados["campos_faltantes"].append("referencia")
+    # Referência agora é opcional no comando: se não informada, herda da cópia avançando o mês
     if not dados["vencimento"]:
         dados["campos_faltantes"].append("vencimento")
 
@@ -394,10 +393,24 @@ async def lancar_pagamento_avulso(
                 except Exception as e:
                     print(f"  [Avulso] Aviso ao preencher filial: {e}", flush=True)
                     
-            # 8.3 Referência (Obrigatório)
-            await f.fill("#ttp_referencia", referencia)
+            # 8.3 Referência (Se informada, usa; se ausente, herda da cópia e avança o mês)
+            ref_final = referencia
+            if not ref_final or ref_final.upper() == "REF-AUTO":
+                try:
+                    ref_herdada = (await f.input_value("#ttp_referencia") or "").strip()
+                    if ref_herdada and ref_herdada.upper() != "REF-AUTO":
+                        from erp_launcher import avancar_mes_referencia
+                        ref_final = avancar_mes_referencia(ref_herdada)
+                        print(f"  [Avulso] Referência herdada '{ref_herdada}' -> Atualizada para próximo mês: '{ref_final}'", flush=True)
+                except Exception as e:
+                    print(f"  [Avulso] Aviso ao ler referência herdada: {e}", flush=True)
+
+            if not ref_final:
+                ref_final = f"PAGAMENTO AVULSO - {datetime.now().strftime('%m/%Y')}"
+
+            await f.fill("#ttp_referencia", ref_final)
             await f.evaluate("() => { const el = document.querySelector('#ttp_referencia'); if(el) el.dispatchEvent(new Event('change', {bubbles: true})); }")
-            print(f"  [Avulso] Referência preenchida: {referencia}", flush=True)
+            print(f"  [Avulso] Referência preenchida: {ref_final}", flush=True)
             
             # 8.4 Data de Vencimento (Obrigatório)
             venc_formatado = vencimento.strftime("%d/%m/%Y")
@@ -455,7 +468,7 @@ async def lancar_pagamento_avulso(
                 "fornecedor": fornecedor,
                 "valor": valor,
                 "filial": filial,
-                "referencia": referencia,
+                "referencia": ref_final,
                 "vencimento": vencimento.strftime("%d/%m/%Y"),
                 "observacao": observacao or "Original mantida",
                 "total_colaboradores": 1,
@@ -480,7 +493,7 @@ async def lancar_pagamento_avulso(
                 "valor": valor,
                 "valor_str": f"R$ {val_formatado}",
                 "filial": filial,
-                "referencia": referencia,
+                "referencia": ref_final,
                 "vencimento": vencimento.strftime("%d/%m/%Y"),
                 "observacao": observacao or "(Mantida do título base clonado)",
                 "mensagem": "Pagamento avulso gravado com sucesso no ERP ADMSIS."

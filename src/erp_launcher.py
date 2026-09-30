@@ -1,7 +1,7 @@
 import os
 import re
 import asyncio
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -209,6 +209,98 @@ MESES_PT = [
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ]
 
+MESES_NOMES = [
+    ('janeiro', 'fevereiro'), ('fevereiro', 'março'), ('março', 'abril'), ('marco', 'abril'),
+    ('abril', 'maio'), ('maio', 'junho'), ('junho', 'julho'), ('julho', 'agosto'),
+    ('agosto', 'setembro'), ('setembro', 'outubro'), ('outubro', 'novembro'), ('novembro', 'dezembro'),
+    ('dezembro', 'janeiro')
+]
+
+MESES_ABREV = [
+    ('jan', 'fev'), ('fev', 'mar'), ('mar', 'abr'), ('abr', 'mai'),
+    ('mai', 'jun'), ('jun', 'jul'), ('jul', 'ago'), ('ago', 'set'),
+    ('set', 'out'), ('out', 'nov'), ('nov', 'dez'), ('dez', 'jan')
+]
+
+def avancar_mes_referencia(texto: str) -> str:
+    """
+    Avança o mês em uma descrição de referência herdada de um título clonado no ERP.
+    Exemplos:
+      'Convênio Amil Dental Setembro 2026' -> 'Convênio Amil Dental Outubro 2026'
+      'HONORARIOS SETEMBRO/2026' -> 'HONORARIOS OUTUBRO/2026'
+      'REF 09/2026' -> 'REF 10/2026'
+      'DEZEMBRO/2025' -> 'JANEIRO/2026'
+    """
+    if not texto:
+        return texto
+
+    # 1. Procura mês por extenso (preservando maiúsculas/minúsculas)
+    for m_atual, m_prox in MESES_NOMES:
+        pattern = re.compile(rf'\b{m_atual}\b', re.IGNORECASE)
+        m = pattern.search(texto)
+        if m:
+            sub = m_prox
+            if m.group(0).isupper():
+                sub = m_prox.upper()
+            elif m.group(0).istitle():
+                sub = m_prox.capitalize()
+            res = pattern.sub(sub, texto, count=1)
+            if m_atual == 'dezembro':
+                m_ano = re.search(r'\b(20\d\d)\b', res)
+                if m_ano:
+                    novo_ano = str(int(m_ano.group(1)) + 1)
+                    res = re.sub(rf'\b{m_ano.group(1)}\b', novo_ano, res, count=1)
+            return res
+
+    # 2. Procura abreviação de 3 letras
+    for a_atual, a_prox in MESES_ABREV:
+        pattern = re.compile(rf'\b{a_atual}\b', re.IGNORECASE)
+        m = pattern.search(texto)
+        if m:
+            sub = a_prox
+            if m.group(0).isupper():
+                sub = a_prox.upper()
+            elif m.group(0).istitle():
+                sub = a_prox.capitalize()
+            res = pattern.sub(sub, texto, count=1)
+            if a_atual == 'dez':
+                m_ano = re.search(r'\b(20\d\d)\b', res)
+                if m_ano:
+                    novo_ano = str(int(m_ano.group(1)) + 1)
+                    res = re.sub(rf'\b{m_ano.group(1)}\b', novo_ano, res, count=1)
+            return res
+
+    # 3. Procura formato numérico MM/AAAA ou MM/AA
+    def repl_num(match):
+        m_num = int(match.group(1))
+        ano_str = match.group(2)
+        if 1 <= m_num <= 12:
+            if m_num == 12:
+                prox_m = 1
+                novo_ano = str(int(ano_str) + 1) if len(ano_str) == 4 else f'{int(ano_str)+1:02d}'
+                return f'{prox_m:02d}/{novo_ano}'
+            else:
+                return f'{m_num+1:02d}/{ano_str}'
+        return match.group(0)
+
+    res_num = re.sub(r'\b(0[1-9]|1[0-2])/(\d{2,4})\b', repl_num, texto, count=1)
+    if res_num != texto:
+        return res_num
+
+    return texto
+
+def calcular_vencimento_erp(vencimento_original: date) -> date:
+    """
+    Regra para boletos: Vencimento no ERP é SEMPRE -1 dia (D-1).
+    Se cair em sábado ou domingo, antecipa para a sexta-feira anterior (dia útil bancário).
+    """
+    venc_erp = vencimento_original - timedelta(days=1)
+    if venc_erp.weekday() == 6:  # Domingo -> Sexta-feira
+        venc_erp -= timedelta(days=2)
+    elif venc_erp.weekday() == 5:  # Sábado -> Sexta-feira
+        venc_erp -= timedelta(days=1)
+    return venc_erp
+
 async def fill_field(ctx, selector, value, label=""):
     if not value:
         return
@@ -258,8 +350,16 @@ async def fill_fields(page, ctx, entry):
         await fill_field(ctx, "#ttp_valor_titulo", valor_br(fill_valor), "Valor")
 
     venc = entry.get("vencimento")
+    tipo = entry.get("tipo", "")
     if venc:
-        val_digits = venc.strftime("%d%m%Y")
+        # Boletos lidos via PDF: aplica a regra 'sempre -1 dia' antecipando se fim de semana
+        if tipo == "Boleto" or entry.get("pdf_path"):
+            venc_para_gravar = calcular_vencimento_erp(venc)
+            print(f"  Vencimento do Boleto: {venc.strftime('%d/%m/%Y')} -> Gravando no ERP como D-1: {venc_para_gravar.strftime('%d/%m/%Y')}", flush=True)
+        else:
+            venc_para_gravar = venc
+
+        val_digits = venc_para_gravar.strftime("%d%m%Y")
         try:
             el = await ctx.query_selector("#ttp_data_vencimento")
             if el:
@@ -275,8 +375,28 @@ async def fill_fields(page, ctx, entry):
         except Exception as e:
             print(f"  Erro vencimento: {e}", flush=True)
 
-    ref = entry.get("referencia") or "REF-AUTO"
-    tipo = entry.get("tipo", "")
+    # 1. Referência: Lê a referência herdada do formulário clonado no ERP
+    ref_herdada = ""
+    try:
+        el_ref = await ctx.query_selector("#ttp_referencia")
+        if el_ref:
+            ref_herdada = (await el_ref.input_value() or "").strip()
+    except Exception as e:
+        print(f"  Aviso ao ler referencia do formulario: {e}", flush=True)
+
+    ref_informada = entry.get("referencia")
+    if ref_informada and ref_informada.upper() != "REF-AUTO":
+        ref = ref_informada
+    elif ref_herdada and ref_herdada.upper() != "REF-AUTO":
+        ref = avancar_mes_referencia(ref_herdada)
+        print(f"  Referência clonada '{ref_herdada}' -> Atualizada para próximo mês: '{ref}'", flush=True)
+    else:
+        hoje = datetime.now()
+        mes = MESES_PT[hoje.month]
+        ref = f"{entry.get('fornecedor', 'FATURA')[:30]} - {mes}/{hoje.year}"
+
+    entry["referencia"] = ref
+
     fornecedor_nome = (entry.get("fornecedor") or "").upper()
     is_relevo = "RELEVO" in fornecedor_nome
     is_holerit = tipo == "Holerit"
@@ -323,12 +443,13 @@ async def fill_fields(page, ctx, entry):
         obs = ref
         await fill_field(ctx, "#ttp_referencia", ref, "Referencia")
 
+        doc_num = entry.get("nf_numero") or entry.get("documento") or ref
         for sel_nf in ["#ttp_numero_nota_fiscal", "#ttp_nota_fiscal", "#ttp_nf", "#ttp_numero_nf", "#ttp_documento", "#ttp_nr_nota"]:
             try:
                 el = await ctx.query_selector(sel_nf)
                 if el:
-                    await el.fill(ref, timeout=3000)
-                    print(f"  Nr. Nota Fiscal: {ref}", flush=True)
+                    await el.fill(doc_num, timeout=3000)
+                    print(f"  Nr. Nota Fiscal: {doc_num}", flush=True)
                     break
             except:
                 continue

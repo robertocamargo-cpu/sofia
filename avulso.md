@@ -31,8 +31,8 @@ Este documento descreve detalhadamente o fluxo de lançamento e duplicação aut
 | **9. Copiar Título** | Acionar ação de cópia | `<button id="Copiar" onclick="f_Copiar()">` | Dispara a clonagem do título; aceita o diálogo `"Sim"`. |
 | **10. Preencher Valor** | Informar o valor do pagamento | `<input id="ttp_valor_titulo">` | Formatação em moeda brasileira (ex: `760` $\rightarrow$ `760,00`). |
 | **11. Preencher Filial** | Vincular à filial solicitada | `<select id="ttp_filial_id">` | Seleciona a filial de custo (ex: `429`, `601`, `Nevine`, etc.). |
-| **12. Preencher Referência** | Definir a referência/NF | `<input id="ttp_referencia">` | **Obrigatório:** Texto informado no Discord. Se ausente, a SofIA pausa e solicita. |
-| **13. Preencher Vencimento**| Definir a data do pagamento | `<input id="ttp_data_vencimento">` | **Obrigatório:** Digitação de 8 dígitos (`DDMMAAAA`) com `change` e `blur`. |
+| **12. Preencher Referência** | Definir a referência/NF | `<input id="ttp_referencia">` | **Inteligente:** Se informada, utiliza; se omitida, **herda a referência do título clonado e avança 1 mês no nome** (ex: *Setembro* $\rightarrow$ *Outubro*). |
+| **13. Preencher Vencimento**| Definir a data do pagamento | `<input id="ttp_data_vencimento">` | **Obrigatório:** Digitação de 8 dígitos (`DDMMAAAA`). Em boletos, aplica a regra **sempre -1 dia (D-1)**, antecipando para sexta se fim de semana. |
 | **14. Observação / Histórico**| Histórico da despesa | `<textarea id="ttp_historico">` | Se informada no Discord, atualiza; se não informada, **mantém como está** da cópia. |
 | **15. Gravação** | Salvar o novo título | `<button id="AlterarI">` (`Alterar`) | Grava o título clonado e confirma `"Sim"`. |
 
@@ -49,13 +49,13 @@ Para garantir segurança contábil e evitar lançamentos inconsistentes no ERP:
 | **Favorecido / Fornecedor** | Sim | Retorna erro solicitando o nome do favorecido. |
 | **Valor (R$)** | Sim | Retorna erro solicitando o valor. |
 | **Filial** | Sim | Se não informado, utiliza a filial padrão configurada no `.env` (`FILIAL_PADRAO=429`). |
-| **Referência** | **Sim** | **A SofIA interrompe a execução e pergunta no Discord:** *"Qual é a referência do pagamento?"* |
-| **Data de Vencimento** | **Sim** | **A SofIA interrompe a execução e pergunta no Discord:** *"Qual é a data de vencimento?"* (Aceita `hoje`, `amanhã` ou `DD/MM/AAAA`). |
+| **Referência** | Opcional | **Herda do título anterior clonado avançando 1 mês no nome** (ex: *Setembro* $\rightarrow$ *Outubro*, *09/2026* $\rightarrow$ *10/2026*). |
+| **Data de Vencimento** | **Sim** | **A SofIA interrompe e pergunta no Discord:** *"Qual é a data de vencimento?"* (Em boletos PDF, calcula automaticamente D-1). |
 | **Observação** | Não | **Mantém o conteúdo original** herdado do título clonado. Se o usuário fornecer, substitui. |
 
 ### B. Validação Prévia Inteligente (*Fail-Fast*)
 A assistente analisa a mensagem do usuário antes de iniciar o navegador Playwright:
-* Se faltar **Referência** ou **Data de Vencimento**, a SofIA responde **imediatamente** no chat com um formulário amigável de preenchimento, **sem abrir o ERP** nem consumir tempo da fila de processamento.
+* Se faltar **Favorecido**, **Valor** ou **Data de Vencimento**, a SofIA responde **imediatamente** no chat com um formulário amigável de preenchimento, **sem abrir o ERP** nem consumir tempo da fila de processamento.
 
 ---
 

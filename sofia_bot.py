@@ -118,7 +118,7 @@ def formatar_tabela_individual(entry: dict) -> str:
     venc = entry.get("vencimento")
     venc_str = venc.strftime("%d/%m/%Y") if hasattr(venc, "strftime") else str(venc)
     filial = entry.get("filial", "429")
-    ref = entry.get("referencia", "REF-AUTO")
+    ref = entry.get("referencia", "N/D")
     tipo = entry.get("tipo", "TITULO")
     
     linhas = [
@@ -321,7 +321,7 @@ async def on_message(message: discord.Message):
             status_msg = await message.reply(
                 f"💸 **Comando de Pagamento Avulso detectado!**\n"
                 f"👤 Favorecido: **{forn}** | 💰 Valor: **{formatar_valor_br(val)}** | 🏢 Filial: **{fil}**\n"
-                f"📋 Ref: `{ref}` | ⏰ Vencimento: `{venc.strftime('%d/%m/%Y')}`\n"
+                f"📋 Ref: `{ref or '(Herdada da cópia + avançar mês)'}` | ⏰ Vencimento: `{venc.strftime('%d/%m/%Y')}`\n"
                 f"Localizando último título e duplicando no ERP ADMSIS..."
             )
             
