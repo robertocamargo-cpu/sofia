@@ -153,7 +153,7 @@ async def on_message(message: discord.Message):
     # Verifica se o bot foi mencionado ou se há comando de pagamento
     conteudo = message.content.lower()
     mencionado = bot.user in message.mentions
-    comando_pagar = any(termo in conteudo for termo in ["lance", "pagar", "pagamento", "boleto", "gnre", "holerite", "!pagar", "contas", "relatorio", "relatório", "titulos", "títulos", "receber", "recebimento", "historico", "histórico", "avulso"])
+    comando_pagar = any(termo in conteudo for termo in ["lance", "pagar", "pagamento", "boleto", "gnre", "holerite", "!pagar", "contas", "relatorio", "relatório", "titulos", "títulos", "receber", "recebimento", "historico", "histórico", "avulso", "altere", "alterar", "prorrogar", "mudar"])
 
     if not (mencionado or comando_pagar or isinstance(message.channel, discord.DMChannel)):
         return
@@ -171,6 +171,107 @@ async def on_message(message: discord.Message):
         embed_hist.set_footer(text="Automação Contas a Pagar • ADMSIS ERP (data/batch_history.json)")
         await message.reply(embed=embed_hist)
         return
+
+    # Verifica se é comando de Alteração de Título (Individual ou em Lote)
+    if any(k in conteudo for k in ["altere", "alterar", "prorrogar", "mudar"]):
+        from alteracao_launcher import (
+            parse_alteracao_command,
+            alterar_titulo_individual,
+            alterar_titulos_lote
+        )
+        dados_alt = parse_alteracao_command(message.content)
+
+        if dados_alt.get("erros"):
+            embed_err = discord.Embed(
+                title="⚠️ Comando de Alteração Incompleto",
+                description="Não foi possível identificar todos os dados necessários:\n" + "\n".join([f"• {e}" for e in dados_alt["erros"]]) + "\n\n*💡 Exemplos de uso:*\n"
+                + "> `@SofIA altere o plano de contas do favorecido Eduardo Laurindo para 41038`\n"
+                + "> `@SofIA altere a data de vencimento do favorecido Eduardo Laurindo para 01/10/2026`\n"
+                + "> `@SofIA altere a data de vencimento de TODOS os favorecidos de HOJE para 01/10/2026`",
+                color=discord.Color.gold()
+            )
+            embed_err.set_footer(text="Automação Contas a Pagar • ADMSIS ERP")
+            await message.reply(embed=embed_err)
+            return
+
+        if dados_alt["modo"] == "lote":
+            orig = dados_alt["lote_origem_str"]
+            dest = dados_alt["lote_destino_str"]
+            async with gerenciar_sessao_erp(message, f"Alteração em Lote ({orig} ➔ {dest})"):
+                status_msg = await message.reply(
+                    f"🔄 **Alteração em Lote Detectada!**\n"
+                    f"📅 Prorrogando vencimento de **TODOS** os títulos pendentes de `{orig}` para `{dest}`...\n"
+                    f"Acessando o ERP ADMSIS e aplicando filtros..."
+                )
+                try:
+                    res_lote = await alterar_titulos_lote(
+                        data_origem=dados_alt["lote_origem"],
+                        data_destino=dados_alt["lote_destino"],
+                        filial=dados_alt.get("filial_filtro")
+                    )
+                    if res_lote["sucesso"]:
+                        total_alt = res_lote.get("total_alterados", 0)
+                        embed_ok = discord.Embed(
+                            title="✅ Alteração em Lote Concluída com Sucesso!",
+                            description=f"Foram alterados **{total_alt} título(s)** no ERP ADMSIS.\n\n"
+                            f"• **Data de Origem:** `{orig}`\n"
+                            f"• **Nova Data de Vencimento:** `{dest}`\n"
+                            f"• **Situação:** Pendente",
+                            color=discord.Color.green()
+                        )
+                        embed_ok.set_footer(text="Automação Contas a Pagar • ADMSIS ERP")
+                        await status_msg.edit(content=None, embed=embed_ok)
+                    else:
+                        embed_fail = discord.Embed(
+                            title="❌ Falha na Alteração em Lote",
+                            description=res_lote["mensagem"],
+                            color=discord.Color.red()
+                        )
+                        embed_fail.set_footer(text="Automação Contas a Pagar • ADMSIS ERP")
+                        await status_msg.edit(content=None, embed=embed_fail)
+                except Exception as ex:
+                    await status_msg.edit(content=f"❌ Erro ao processar alteração em lote: `{ex}`")
+            return
+
+        else:
+            # Modo Individual
+            forn = dados_alt["fornecedor"]
+            campos = dados_alt["campos"]
+            async with gerenciar_sessao_erp(message, f"Alteração ({forn})"):
+                status_msg = await message.reply(
+                    f"✏️ **Alteração de Título Detectada!**\n"
+                    f"👤 Favorecido: **{forn}**\n"
+                    f"Acessando o último título pendente no ERP ADMSIS..."
+                )
+                try:
+                    res_ind = await alterar_titulo_individual(
+                        fornecedor=forn,
+                        campos=campos
+                    )
+                    if res_ind["sucesso"]:
+                        linhas_mods = [
+                            f"• **{campo}:** `{detalhe}`"
+                            for campo, detalhe in res_ind.get("modificados", {}).items()
+                        ]
+                        embed_ok = discord.Embed(
+                            title="✅ Título Alterado com Sucesso no ERP!",
+                            description=f"O título pendente de **{forn}** foi atualizado no ADMSIS.\n\n"
+                            f"**📋 Campos Modificados:**\n" + "\n".join(linhas_mods),
+                            color=discord.Color.green()
+                        )
+                        embed_ok.set_footer(text="Automação Contas a Pagar • ADMSIS ERP")
+                        await status_msg.edit(content=None, embed=embed_ok)
+                    else:
+                        embed_fail = discord.Embed(
+                            title="❌ Falha na Alteração do Título",
+                            description=res_ind["mensagem"],
+                            color=discord.Color.red()
+                        )
+                        embed_fail.set_footer(text="Automação Contas a Pagar • ADMSIS ERP")
+                        await status_msg.edit(content=None, embed=embed_fail)
+                except Exception as ex:
+                    await status_msg.edit(content=f"❌ Erro ao processar alteração: `{ex}`")
+            return
 
     # Verifica se e comando de Pagamento Avulso (sem boleto / PIX / transferencia)
     if "avulso" in conteudo:
@@ -605,6 +706,8 @@ async def on_message(message: discord.Message):
                     "• **Para Contas a Pagar do Dia:** basta pedir `@SofIA contas a pagar de hoje` ou `@SofIA contas a pagar 03/07/2026` para receber o PDF oficial.\n"
                     "• **Para Contas a Receber do Dia:** basta pedir `@SofIA contas a receber de hoje` ou `@SofIA recebimentos do dia` para receber o PDF oficial.\n"
                     "• **Para Pagamento Avulso (PIX):** envie `@SofIA lance pagamento avulso para NOME, valor 760, filial 429, ref MANUTENÇÃO, vencimento hoje`.\n"
+                    "• **Para Alteração de Título:** envie `@SofIA altere o plano de contas do favorecido EDUARDO LAURINDO para 41038` ou `altere a data de vencimento do favorecido NOME para 01/10/2026`.\n"
+                    "• **Para Alteração em Lote:** envie `@SofIA altere a data de vencimento de TODOS os favorecidos de HOJE para 01/10/2026`.\n"
                     "• **Para Histórico de Lotes:** basta pedir `@SofIA historico` para ver os últimos lançamentos em lote."
                 ),
                 color=discord.Color.blue()
