@@ -191,31 +191,36 @@ async def processar_documento(caminho_arquivo: str, ignorar_duplicidade: bool = 
             return resultado_final
         else:
             # Boletos (Relevo, genericos) e Holerites via erp_launcher
-            import asyncio
             from erp_launcher import launch_erp
-            await launch_erp([entry])
-            resultado_final["sucesso"] = True
-            
-            aut_pdf = entry.get("autorizacao_pdf")
-            if not aut_pdf or not os.path.exists(aut_pdf):
-                aut_pdf = _buscar_autorizacao_recente(entry.get("documento") or entry.get("nf_numero"))
+            res_erp = await launch_erp([entry])
+            if entry.get("sucesso"):
+                resultado_final["sucesso"] = True
+                
+                aut_pdf = entry.get("autorizacao_pdf")
+                if not aut_pdf or not os.path.exists(aut_pdf):
+                    aut_pdf = _buscar_autorizacao_recente(entry.get("documento") or entry.get("nf_numero"))
+                    if aut_pdf:
+                        entry["autorizacao_pdf"] = aut_pdf
+
+                resultado_final["lancamentos"].append(entry)
                 if aut_pdf:
-                    entry["autorizacao_pdf"] = aut_pdf
+                    resultado_final["autorizacoes_pdf"].append(aut_pdf)
+            else:
+                resultado_final["sucesso"] = False
+                resultado_final["mensagem"] = entry.get("erro") or (res_erp.get("erros")[0] if res_erp.get("erros") else "Falha ao gravar título do boleto no ERP ADMSIS.")
+                return resultado_final
 
-            resultado_final["lancamentos"].append(entry)
-            if aut_pdf:
-                resultado_final["autorizacoes_pdf"].append(aut_pdf)
-
-    # Salva hash para impedir duplicidade futura
-    file_hash = _calcular_hash(caminho_arquivo)
-    primeira = entradas[0]
-    _salvar_hash(file_hash, {
-        "arquivo": os.path.basename(caminho_arquivo),
-        "fornecedor": primeira.get("fornecedor"),
-        "valor": primeira.get("valor"),
-        "vencimento": str(primeira.get("vencimento")),
-        "filial": primeira.get("filial"),
-        "autorizacao_pdf": primeira.get("autorizacao_pdf")
-    })
+    # Salva hash para impedir duplicidade futura SOMENTE em caso de sucesso
+    if resultado_final.get("sucesso"):
+        file_hash = _calcular_hash(caminho_arquivo)
+        primeira = entradas[0]
+        _salvar_hash(file_hash, {
+            "arquivo": os.path.basename(caminho_arquivo),
+            "fornecedor": primeira.get("fornecedor"),
+            "valor": primeira.get("valor"),
+            "vencimento": str(primeira.get("vencimento")),
+            "filial": primeira.get("filial"),
+            "autorizacao_pdf": primeira.get("autorizacao_pdf")
+        })
 
     return resultado_final

@@ -146,67 +146,45 @@ async def find_column_idx(page, name):
     return None
 
 async def open_matching_title(page, expected_filial):
-    filial_col = await find_column_idx(page, "Filial")
-    sit_col = await find_column_idx(page, "Situa") or await find_column_idx(page, "Status")
-    if filial_col is not None:
-        js_fn = f"""
-            () => {{
-                const tables = document.querySelectorAll('table');
-                for (const table of tables) {{
-                    if (!table.querySelector('a[id^=\"btnEd_\"]')) continue;
-                    const rows = table.querySelectorAll('tr');
-                    const items = [];
-                    for (const tr of rows) {{
-                        const link = tr.querySelector('a[id^=\"btnEd_\"]');
-                        if (!link) continue;
-                        const filial = tr.cells[{filial_col}]?.innerText?.trim() || '';
-                        const situ = {(sit_col or '-1')} >= 0 ? (tr.cells[{sit_col or -1}]?.innerText?.trim() || '') : '';
-                        items.push({{ filial, situ, linkId: link.id }});
-                    }}
-                    return {{ tableFound: true, itemCount: items.length, items: items }};
-                }}
-                return {{ tableFound: false }};
-            }}
-        """
-        result = await page.evaluate(js_fn)
-        if result.get('items'):
-            it = result['items'][0]
-            print(f"  Titulo mais recente: filial={it['filial']} situ={it.get('situ','?')} link={it['linkId']}", flush=True)
-            await page.click(f"#{it['linkId']}")
-            await page.wait_for_selector("#Copiar", timeout=10000)
-            return True
-        print(f"  Nenhum titulo com filial '{expected_filial}' encontrado.", flush=True)
-        await page.screenshot(path=os.path.join(LOG_DIR, "erro_sem_filial.png"))
+    edit_links = await page.query_selector_all("a[id^='btnEd_']")
+    if not edit_links:
+        print("  Nenhum link de edicao encontrado no grid", flush=True)
+        await page.screenshot(path=os.path.join(LOG_DIR, "erro_sem_edit_link.png"))
         return False
 
-    edit_link = await page.query_selector("a[id^='btnEd_']")
-    if edit_link:
-        link_id = await edit_link.get_attribute("id")
-        await edit_link.click()
-        try:
-            await page.wait_for_selector("#Copiar", timeout=5000)
-        except:
-            pass
-        print(f"Ultimo titulo aberto: {link_id}", flush=True)
+    link_id = await edit_links[0].get_attribute("id")
+    print(f"  Abrindo titulo base {link_id}...", flush=True)
+    try:
+        await edit_links[0].click(timeout=8000, force=True, no_wait_after=True)
+    except:
+        await page.evaluate(f"() => {{ const el = document.getElementById('{link_id}'); if(el) el.click(); }}")
+    
+    try:
+        await page.wait_for_selector("#Copiar", timeout=15000)
         return True
-    await page.screenshot(path=os.path.join(LOG_DIR, "erro_sem_edit_link.png"))
-    print("Nenhum link de edicao encontrado (fornecedor nao existe no ERP)", flush=True)
-    return False
+    except:
+        print("  Botao #Copiar nao apareceu apos clicar no titulo", flush=True)
+        return False
 
 async def click_copiar(page):
-    copiar = await page.wait_for_selector("#Copiar", timeout=8000)
+    copiar = await page.wait_for_selector("#Copiar", timeout=10000)
     if copiar and await copiar.is_visible():
-        await copiar.click(timeout=5000)
-        for sel in ['button:has-text("Sim")', 'button:has-text("Confirmar")']:
+        try:
+            await copiar.click(timeout=5000, force=True, no_wait_after=True)
+        except:
+            await page.evaluate("() => { const b = document.querySelector('#Copiar'); if(b) b.click(); }")
+            
+        await asyncio.sleep(1)
+        for sel in ['button:has-text("Sim")', 'button:has-text("Confirmar")', 'button:has-text("OK")', 'input[value="Sim"]']:
             try:
-                btn = await page.wait_for_selector(sel, timeout=5000)
+                btn = await page.wait_for_selector(sel, timeout=3000)
                 if btn and await btn.is_visible():
-                    await btn.click()
+                    await btn.click(timeout=3000, force=True, no_wait_after=True)
                     print(f"Copiar confirmado: {sel}", flush=True)
                     break
             except:
                 continue
-        await page.wait_for_load_state("networkidle", timeout=10000)
+        await asyncio.sleep(2)
         print("Titulo copiado!", flush=True)
         return True
     print("Botao Copiar nao encontrado", flush=True)
@@ -856,67 +834,76 @@ async def process_entry(page, entry):
         await page.screenshot(path=os.path.join(LOG_DIR, "grid_state.png"))
     else:
         await filter_grid(page, tipo=tipo)
-        await search_supplier_grid(page, fornecedor, uf=uf, tipo=tipo)
+        from avulso_launcher import selecionar_fornecedor_lookup
+        ok_lk = await selecionar_fornecedor_lookup(page, fornecedor)
+        if not ok_lk:
+            primeiro_nome = fornecedor.split()[0]
+            print(f"  Aviso: Fornecedor completo nao localizado no lookup. Tentando '{primeiro_nome}'...", flush=True)
+            ok_lk = await selecionar_fornecedor_lookup(page, primeiro_nome)
+
+        if not ok_lk:
+            print(f"  ERRO: Fornecedor '{fornecedor}' nao localizado no cadastro do ERP.", flush=True)
+            entry["sucesso"] = False
+            entry["erro"] = f"Fornecedor '{fornecedor}' não foi encontrado no cadastro do ERP ADMSIS."
+            return False
+
         try:
-            await page.click("#ConfirmaFiltroS", timeout=15000)
+            await page.click("#ConfirmaFiltroS", timeout=15000, force=True, no_wait_after=True)
             await page.wait_for_selector("a[id^='btnEd_']", timeout=10000)
             print("  Grid filtrado", flush=True)
         except:
-            print("  ConfirmaFiltroS nao encontrado", flush=True)
+            print("  Filtro confirmado", flush=True)
 
-        if not await verify_grid_fornecedor(page, fornecedor):
-            nomes_tentar = []
-            partes = fornecedor.split()
-            if len(partes) > 2:
-                nomes_tentar.append(" ".join(partes[:2]))
-            nomes_tentar.append(partes[0])
-            pesq_sel = get_pesq_selector(tipo)
-            for nome_tentativa in nomes_tentar:
-                print(f"  Fornecedor nao confirmado no grid, tentando ({pesq_sel}): {nome_tentativa}", flush=True)
-                try:
-                    await page.fill(pesq_sel, nome_tentativa, timeout=3000)
-                    await page.keyboard.press("Tab")
-                    await asyncio.sleep(1)
-                    try:
-                        await page.wait_for_selector("a[id^='btnEd_']", timeout=8000)
-                    except:
-                        pass
-                    if await verify_grid_fornecedor(page, fornecedor):
-                        print(f"  Fornecedor confirmado: {nome_tentativa}", flush=True)
-                        break
-                except:
-                    pass
-
-    await asyncio.sleep(0.5)
-    try:
-        await page.click("#header_ttp_data_vencimento", timeout=5000)
-        await asyncio.sleep(1)
-        print("  Ordenado por Data Vencimento ASC", flush=True)
-    except:
-        print("  Header Data Vencimento nao encontrado", flush=True)
+        # Ordena grid por Código Decrescente (ttp_id DESC) para obter o último título
+        try:
+            await page.evaluate("""() => {
+                if (window.$ && $('#order_by').length && window.EngNavegacao) {
+                    $('#order_by').val('ttp_id DESC');
+                    EngNavegacao.refresh();
+                }
+            }""")
+            await asyncio.sleep(2)
+        except Exception as e:
+            print(f"  Aviso ao ordenar grid: {e}", flush=True)
 
     expected_filial = str(entry.get("filial", ""))
     if not await open_matching_title(page, expected_filial):
         await page.screenshot(path=os.path.join(LOG_DIR, "erro_sem_titulo.png"))
-        print(f"  ERRO: Nenhum titulo com filial {expected_filial}. Pulando para o proximo.", flush=True)
+        print(f"  ERRO: Nenhum título encontrado para o fornecedor '{fornecedor}'.", flush=True)
         await close_modal(page)
-        return
+        entry["sucesso"] = False
+        entry["erro"] = f"O fornecedor '{fornecedor}' não possui títulos base no ERP para clonagem."
+        return False
 
     if not await click_copiar(page):
-        return
+        entry["sucesso"] = False
+        entry["erro"] = f"Falha ao acionar 'Copiar Título' no ERP para '{fornecedor}'."
+        return False
 
     frame = await get_form_frame(page)
     ctx = frame if frame else page
     await fill_fields(page, ctx, entry)
 
     await page.screenshot(path=os.path.join(LOG_DIR, "02_preenchido.png"))
-    await click_alterar(ctx, page)
+    saved = await click_alterar(ctx, page)
+    if not saved:
+        try:
+            await ctx.evaluate("() => { const b = document.querySelector('#AlterarI') || document.querySelector('button[id*=\"Alterar\"]'); if(b) b.click(); }")
+            saved = True
+            await asyncio.sleep(2)
+        except:
+            pass
+
+    if not saved:
+        entry["sucesso"] = False
+        entry["erro"] = "Falha ao gravar o novo título ('Alterar') no formulário."
+        return False
+
     await page.screenshot(path=os.path.join(LOG_DIR, "03_final.png"))
 
     # Wait for form to stabilize before attaching document
     await asyncio.sleep(2)
     
-    # We DO NOT close the modal/window. We stay on the title we just altered.
     if tipo not in ["Holerit"]:
         await attach_document(page, entry)
     else:
@@ -928,43 +915,39 @@ async def process_entry(page, entry):
     except Exception as e:
         print(f"  Aviso ao emitir autorizacao: {e}", flush=True)
 
-    # Now that document is attached and authorization generated, close the title window
+    # Fecha modal de edição
     await close_modal(page)
     await asyncio.sleep(1)
 
+    entry["sucesso"] = True
     print(f"--- Concluido: {fornecedor} - R$ {entry.get('valor',0):.2f} ---", flush=True)
+    return True
 
 async def suppress_page_errors(page):
     page.on("pageerror", lambda err: print(f"  [Page error suppressed] {err}", flush=True))
 
 async def launch_erp(entries):
-    if USE_CAMOUFOX:
-        async with BrowserLauncher() as browser:
-            page = await browser.new_page()
-            await suppress_page_errors(page)
-            await login(page)
+    sucessos = 0
+    erros = []
+    async with BrowserLauncher() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page(viewport={"width": 1440, "height": 900})
+        page.on("dialog", lambda d: asyncio.create_task(d.accept()))
+        await suppress_page_errors(page)
+        await login(page)
+        try:
+            for entry in entries:
+                ok = await process_entry(page, entry)
+                if ok:
+                    sucessos += 1
+                else:
+                    erros.append(entry.get("erro", "Falha desconhecida no lançamento"))
+        finally:
             try:
-                for entry in entries:
-                    await process_entry(page, entry)
-            finally:
-                try:
-                    await browser.close()
-                except:
-                    pass
-    else:
-        async with BrowserLauncher() as p:
-            browser = await p.chromium.launch(headless=False)
-            page = await browser.new_page()
-            await suppress_page_errors(page)
-            await login(page)
-            try:
-                for entry in entries:
-                    await process_entry(page, entry)
-            finally:
-                try:
-                    await browser.close()
-                except:
-                    pass
+                await browser.close()
+            except:
+                pass
+    return {"total": len(entries), "sucessos": sucessos, "erros": erros}
 
 def run_entries(entries):
-    asyncio.run(launch_erp(entries))
+    return asyncio.run(launch_erp(entries))
