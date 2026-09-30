@@ -84,6 +84,9 @@ O sistema calcula o hash SHA-256 do arquivo recebido e salva em `data/processed_
 | `pagamentos_dia.md` | Documentação técnica e operacional completa do Relatório de Contas a Pagar do Dia |
 | `run_recebimento.py` | Executador CLI para extração de Contas a Receber do Dia / Relatório 2004 |
 | `recebimento_dia.md` | Documentação técnica e operacional completa do Relatório de Contas a Receber do Dia |
+| `src/avulso_launcher.py` | Motor de busca, cópia do último título e lançamento de Pagamento Avulso (PIX) |
+| `run_avulso.py` | Executador CLI para lançamento de Pagamentos Avulsos |
+| `avulso.md` | Documentação técnica e operacional completa do processo de Pagamento Avulso |
 | `src/batch_logger.py` | Gravador e consultor do histórico estruturado de execuções em lote (`batch_history.json`) |
 | `data/batch_history.json` | Log estruturado de auditoria de lotes (VR, Adiantamento, Salários) com métricas financeiras |
 | `.env` | Credenciais do ERP, filial padrão e token do Discord (`DISCORD_BOT_TOKEN`) |

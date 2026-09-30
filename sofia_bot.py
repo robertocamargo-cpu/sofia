@@ -153,7 +153,7 @@ async def on_message(message: discord.Message):
     # Verifica se o bot foi mencionado ou se há comando de pagamento
     conteudo = message.content.lower()
     mencionado = bot.user in message.mentions
-    comando_pagar = any(termo in conteudo for termo in ["lance", "pagar", "pagamento", "boleto", "gnre", "holerite", "!pagar", "contas", "relatorio", "relatório", "titulos", "títulos", "receber", "recebimento", "historico", "histórico"])
+    comando_pagar = any(termo in conteudo for termo in ["lance", "pagar", "pagamento", "boleto", "gnre", "holerite", "!pagar", "contas", "relatorio", "relatório", "titulos", "títulos", "receber", "recebimento", "historico", "histórico", "avulso"])
 
     if not (mencionado or comando_pagar or isinstance(message.channel, discord.DMChannel)):
         return
@@ -171,6 +171,102 @@ async def on_message(message: discord.Message):
         embed_hist.set_footer(text="Automação Contas a Pagar • ADMSIS ERP (data/batch_history.json)")
         await message.reply(embed=embed_hist)
         return
+
+    # Verifica se e comando de Pagamento Avulso (sem boleto / PIX / transferencia)
+    if "avulso" in conteudo:
+        from avulso_launcher import parse_avulso_command, lancar_pagamento_avulso
+        dados_av = parse_avulso_command(message.content)
+        
+        # Se faltar referencia ou vencimento ou fornecedor/valor, solicita interativamente no Discord
+        if dados_av["campos_faltantes"]:
+            faltando = []
+            if "fornecedor" in dados_av["campos_faltantes"]:
+                faltando.append("• 👤 **Favorecido/Fornecedor:** Informe para quem é o pagamento (ex: `para EDUARDO LAURINDO`)")
+            if "valor" in dados_av["campos_faltantes"]:
+                faltando.append("• 💰 **Valor:** Informe o valor (ex: `valor 760` ou `760,00`)")
+            if "referencia" in dados_av["campos_faltantes"]:
+                faltando.append("• 📋 **Referência:** Informe a referência ou nota fiscal (ex: `ref MANUTENÇÃO PREDIAL`)")
+            if "vencimento" in dados_av["campos_faltantes"]:
+                faltando.append("• ⏰ **Data de Vencimento:** Informe a data de vencimento (ex: `vencimento hoje`, `vencimento amanhã` ou `15/10/2026`)")
+
+            desc = (
+                f"Detectei um pedido de **Pagamento Avulso**"
+                + (f" para **{dados_av['fornecedor']}**" if dados_av.get('fornecedor') else "")
+                + (f" no valor de **{formatar_valor_br(dados_av['valor'])}**" if dados_av.get('valor') else "")
+                + f" (Filial **{dados_av.get('filial', '429')}**).\n\n"
+                + "**Campos obrigatórios faltantes:**\n"
+                + "\n".join(faltando)
+                + "\n\n*💡 Dica: Você pode enviar a mensagem completa, por exemplo:*\n"
+                + f"> `@SofIA lance o pagamento avulso para {dados_av.get('fornecedor') or 'EDUARDO LAURINDO'}, valor {dados_av.get('valor') or 760}, filial {dados_av.get('filial') or 429}, ref SUA REFERENCIA, vencimento hoje`"
+            )
+            embed_av_incompleto = discord.Embed(
+                title="⚠️ Pagamento Avulso - Dados Incompletos",
+                description=desc,
+                color=discord.Color.gold()
+            )
+            embed_av_incompleto.set_footer(text="Automação Contas a Pagar • ADMSIS ERP")
+            await message.reply(embed=embed_av_incompleto)
+            return
+
+        # Todos os dados informados: executa o lançamento no ERP com lock de concorrência
+        forn = dados_av["fornecedor"]
+        val = dados_av["valor"]
+        fil = dados_av["filial"]
+        ref = dados_av["referencia"]
+        venc = dados_av["vencimento"]
+        obs = dados_av.get("observacao")
+
+        async with gerenciar_sessao_erp(message, f"Pagamento Avulso ({forn})"):
+            status_msg = await message.reply(
+                f"💸 **Comando de Pagamento Avulso detectado!**\n"
+                f"👤 Favorecido: **{forn}** | 💰 Valor: **{formatar_valor_br(val)}** | 🏢 Filial: **{fil}**\n"
+                f"📋 Ref: `{ref}` | ⏰ Vencimento: `{venc.strftime('%d/%m/%Y')}`\n"
+                f"Localizando último título e duplicando no ERP ADMSIS..."
+            )
+            
+            try:
+                res_av = await lancar_pagamento_avulso(
+                    fornecedor=forn,
+                    valor=val,
+                    filial=fil,
+                    referencia=ref,
+                    vencimento=venc,
+                    observacao=obs
+                )
+                
+                if res_av["sucesso"]:
+                    tabela_av = [
+                        "```text",
+                        f"{'Campo':<16} | {'Dado Lançado no ERP'}",
+                        "-" * 52,
+                        f"{'Favorecido':<16} | {res_av['fornecedor']}",
+                        f"{'Valor':<16} | {res_av['valor_str']}",
+                        f"{'Vencimento':<16} | {res_av['vencimento']}",
+                        f"{'Filial':<16} | {res_av['filial']}",
+                        f"{'Referência':<16} | {res_av['referencia']}",
+                        f"{'Observação':<16} | {res_av['observacao']}",
+                        f"{'Tipo':<16} | Pagamento Avulso (Clonado)",
+                        f"{'Situação':<16} | Gravado no ERP com Sucesso ✅",
+                        "```"
+                    ]
+                    embed_av_sucesso = discord.Embed(
+                        title="✅ Pagamento Avulso Gravado com Sucesso!",
+                        description=f"O último título de **{forn}** foi duplicado e atualizado no ERP ADMSIS.\n\n**📋 Tabela de Dados do Título Lançado:**\n" + "\n".join(tabela_av),
+                        color=discord.Color.green()
+                    )
+                    embed_av_sucesso.set_footer(text="Automação Contas a Pagar • ADMSIS ERP")
+                    await status_msg.edit(content=None, embed=embed_av_sucesso)
+                else:
+                    embed_av_err = discord.Embed(
+                        title="❌ Falha no Lançamento de Pagamento Avulso",
+                        description=res_av["mensagem"],
+                        color=discord.Color.red()
+                    )
+                    embed_av_err.set_footer(text="Automação Contas a Pagar • ADMSIS ERP")
+                    await status_msg.edit(content=None, embed=embed_av_err)
+            except Exception as err:
+                await status_msg.edit(content=f"❌ Erro ao processar pagamento avulso: `{err}`")
+            return
 
     # Verifica se e comando de VR (Vale Refeicao)
     if "vr" in conteudo or "vale refeicao" in conteudo or "vale refeição" in conteudo:
@@ -508,6 +604,7 @@ async def on_message(message: discord.Message):
                     "• **Para Folha de Pagamento:** basta pedir `@SofIA lance pagamento filial 601` ou anexe o PDF.\n"
                     "• **Para Contas a Pagar do Dia:** basta pedir `@SofIA contas a pagar de hoje` ou `@SofIA contas a pagar 03/07/2026` para receber o PDF oficial.\n"
                     "• **Para Contas a Receber do Dia:** basta pedir `@SofIA contas a receber de hoje` ou `@SofIA recebimentos do dia` para receber o PDF oficial.\n"
+                    "• **Para Pagamento Avulso (PIX):** envie `@SofIA lance pagamento avulso para NOME, valor 760, filial 429, ref MANUTENÇÃO, vencimento hoje`.\n"
                     "• **Para Histórico de Lotes:** basta pedir `@SofIA historico` para ver os últimos lançamentos em lote."
                 ),
                 color=discord.Color.blue()

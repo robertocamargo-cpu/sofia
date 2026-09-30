@@ -48,6 +48,9 @@ python run_recebimento.py
 python run_recebimento.py 03/07/2026
 python run_recebimento.py 03/07/2026 relevo
 
+# Lançamento de Pagamento Avulso (PIX / Transferência sem boleto):
+python run_avulso.py "EDUARDO LAURINDO" 760 429 "MANUTENCAO" 30/09/2026
+
 # Ou através dos scripts dedicados:
 python run_gnre.py "GNRE NF 54949.pdf"
 python run_relevo.py
@@ -90,4 +93,6 @@ Consulte os guias específicos para cada tipo de lançamento:
 * [GNRE.md](file:///c:/Users/finan/OneDrive/Área%20de%20Trabalho/automacao%20contas%20a%20pagar/GNRE.md) — Mapeamento completo das 27 UFs e particularidades de guias estaduais.
 * [RELEVO.md](file:///c:/Users/finan/OneDrive/Área%20de%20Trabalho/automacao%20contas%20a%20pagar/RELEVO.md) — Boletos protegidos por senha e regras de antecipação.
 * [Holerite.md](file:///c:/Users/finan/OneDrive/Área%20de%20Trabalho/automacao%20contas%20a%20pagar/Holerite.md) & [ADIANTAMENTO.md](file:///c:/Users/finan/OneDrive/Área%20de%20Trabalho/automacao%20contas%20a%20pagar/ADIANTAMENTO.md) — Lançamentos em lote por funcionário.
+* [avulso.md](file:///c:/Users/finan/OneDrive/Área%20de%20Trabalho/automacao%20contas%20a%20pagar/avulso.md) — Pagamentos avulsos via PIX/transferência com duplicação do último título.
+
 
