@@ -1,5 +1,80 @@
 [
   {
+    "id": "pagamento_avulso_20260930_104623",
+    "timestamp": "2026-09-30T10:46:23.424907",
+    "data_formatada": "30/09/2026 10:46:23",
+    "tipo": "PAGAMENTO_AVULSO",
+    "filial": "429",
+    "competencia": "N/D",
+    "vencimento": "30/09/2026",
+    "total_colaboradores": 1,
+    "total_sucesso": 1,
+    "total_falhas": 0,
+    "valor_total_lancado": 760.0,
+    "arquivo": "Discord / Avulso",
+    "status": "SUCESSO",
+    "detalhes": {
+      "sucessos": [
+        {
+          "colaborador": "EDUARDO LAURINDO",
+          "valor": 760.0,
+          "filial": "429"
+        }
+      ],
+      "falhas": []
+    }
+  },
+  {
+    "id": "pagamento_avulso_20260930_103721",
+    "timestamp": "2026-09-30T10:37:21.316548",
+    "data_formatada": "30/09/2026 10:37:21",
+    "tipo": "PAGAMENTO_AVULSO",
+    "filial": "429",
+    "competencia": "N/D",
+    "vencimento": "30/09/2026",
+    "total_colaboradores": 1,
+    "total_sucesso": 1,
+    "total_falhas": 0,
+    "valor_total_lancado": 760.0,
+    "arquivo": "Discord / Avulso",
+    "status": "SUCESSO",
+    "detalhes": {
+      "sucessos": [
+        {
+          "colaborador": "EDUARDO LAURINDO",
+          "valor": 760.0,
+          "filial": "429"
+        }
+      ],
+      "falhas": []
+    }
+  },
+  {
+    "id": "pagamento_avulso_20260930_101648",
+    "timestamp": "2026-09-30T10:16:48.142922",
+    "data_formatada": "30/09/2026 10:16:48",
+    "tipo": "PAGAMENTO_AVULSO",
+    "filial": "429",
+    "competencia": "N/D",
+    "vencimento": "30/09/2026",
+    "total_colaboradores": 1,
+    "total_sucesso": 1,
+    "total_falhas": 0,
+    "valor_total_lancado": 1.529490222751023e+18,
+    "arquivo": "Discord / Avulso",
+    "status": "SUCESSO",
+    "detalhes": {
+      "sucessos": [
+        {
+          "colaborador": "EDUARDO LAURINDO",
+          "valor": 1.529490222751023e+18,
+          "filial": "429"
+        }
+      ],
+      "falhas": []
+    }
+  },
+  {
     "id": "pagamento_salarios_20260930_083758",
     "timestamp": "2026-09-30T08:37:58.071909",
     "data_formatada": "30/09/2026 08:37:58",

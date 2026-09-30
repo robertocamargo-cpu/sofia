@@ -32,7 +32,7 @@ load_dotenv()
 sys.path.insert(0, os.path.dirname(__file__))
 
 from erp_launcher import (
-    login, BrowserLauncher, ERP_URL, close_modal, valor_br
+    login, BrowserLauncher, ERP_URL, close_modal, valor_br, click_alterar
 )
 
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
@@ -78,7 +78,9 @@ def parse_avulso_command(texto: str) -> Dict[str, Any]:
                 dados["fornecedor"] = candidato
 
     # 2. Valor
-    m_val = re.search(r"(?:valor|r\$|quantia|total)?\s*[:=]?\s*r?\$?\s*(\d+(?:[.,]\d{1,2})?)\b", t, re.IGNORECASE)
+    m_val = re.search(r"(?:valor|quantia|total)\s*[:=]?\s*r?\$?\s*(\d+(?:[.,]\d{1,2})?)\b", t, re.IGNORECASE)
+    if not m_val:
+        m_val = re.search(r"r\$\s*(\d+(?:[.,]\d{1,2})?)\b", t, re.IGNORECASE)
     if m_val:
         v_str = m_val.group(1).replace(".", "").replace(",", ".")
         try:
@@ -191,12 +193,19 @@ async def selecionar_fornecedor_lookup(page, termo_busca: str) -> bool:
     
     for t_pesq in termos:
         print(f"  [Avulso] Pesquisando '{t_pesq}' no lookup...", flush=True)
-        await lk_frame.fill("#txtPesquisa", "")
-        await asyncio.sleep(0.2)
-        await lk_frame.fill("#txtPesquisa", t_pesq)
-        await asyncio.sleep(0.3)
-        await lk_frame.click("#btEnviar")
-        await asyncio.sleep(2)
+        try:
+            await lk_frame.fill("#txtPesquisa", "")
+            await asyncio.sleep(0.2)
+            await lk_frame.fill("#txtPesquisa", t_pesq)
+            await asyncio.sleep(0.3)
+            try:
+                await lk_frame.click("#btEnviar", timeout=5000, force=True, no_wait_after=True)
+            except Exception:
+                await lk_frame.evaluate("() => { const b = document.querySelector('#btEnviar'); if(b) b.click(); }")
+            await asyncio.sleep(2)
+        except Exception as e:
+            print(f"  [Avulso] Erro ao submeter pesquisa: {e}", flush=True)
+            continue
         
         # 4. Procura linha correspondente
         rows = await lk_frame.query_selector_all("table tr")
@@ -212,7 +221,10 @@ async def selecionar_fornecedor_lookup(page, termo_busca: str) -> bool:
                     await asyncio.sleep(0.5)
                     btn_conf = await lk_frame.query_selector("#btConfirmarSelecao")
                     if btn_conf:
-                        await btn_conf.click()
+                        try:
+                            await btn_conf.click(timeout=5000, force=True, no_wait_after=True)
+                        except Exception:
+                            await lk_frame.evaluate("() => { const b = document.querySelector('#btConfirmarSelecao'); if(b) b.click(); }")
                         await asyncio.sleep(1.5)
                         await close_modal(page)
                         return True
@@ -262,6 +274,9 @@ async def lancar_pagamento_avulso(
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page(viewport={"width": 1440, "height": 900})
         
+        # Aceita automaticamente diálogos nativos do navegador (alert/confirm)
+        page.on("dialog", lambda dialog: asyncio.create_task(dialog.accept()))
+        
         try:
             # 1. Login no ERP
             await login(page)
@@ -279,7 +294,7 @@ async def lancar_pagamento_avulso(
             # 3. Clica em Filtrar (#ConfirmaFiltroS / fa-filter)
             print("  [Avulso] Clicando em Filtrar (#ConfirmaFiltroS)...", flush=True)
             try:
-                await page.click("#ConfirmaFiltroS", timeout=10000)
+                await page.click("#ConfirmaFiltroS", timeout=10000, force=True, no_wait_after=True)
             except:
                 await page.evaluate("() => { const b = document.querySelector('#ConfirmaFiltroS'); if(b) b.click(); }")
                 
@@ -298,7 +313,10 @@ async def lancar_pagamento_avulso(
             ultimo_titulo_link = edit_links[0]
             link_id = await ultimo_titulo_link.get_attribute("id")
             print(f"  [Avulso] Último título localizado no grid: {link_id}. Abrindo...", flush=True)
-            await ultimo_titulo_link.click()
+            try:
+                await ultimo_titulo_link.click(timeout=8000, force=True, no_wait_after=True)
+            except Exception:
+                await page.evaluate(f"() => {{ const el = document.getElementById('{link_id}'); if(el) el.click(); }}")
             await asyncio.sleep(2)
             
             # 6. Aguarda o botão Copiar Título
@@ -310,20 +328,22 @@ async def lancar_pagamento_avulso(
                 }
                 
             print("  [Avulso] Acionando 'Copiar Título'...", flush=True)
-            await btn_copiar.click()
+            try:
+                await btn_copiar.click(timeout=5000, force=True, no_wait_after=True)
+            except Exception:
+                await page.evaluate("() => { const b = document.querySelector('#Copiar'); if(b) b.click(); }")
             
             # Confirma diálogo de cópia ("Sim")
             for sel in ['button:has-text("Sim")', 'button:has-text("OK")', 'button:has-text("Confirmar")', 'input[value="Sim"]']:
                 try:
                     b_conf = await page.wait_for_selector(sel, timeout=3000)
                     if b_conf and await b_conf.is_visible():
-                        await b_conf.click()
+                        await b_conf.click(timeout=3000, force=True, no_wait_after=True)
                         print(f"  [Avulso] Diálogo de cópia confirmado ({sel})", flush=True)
                         break
                 except:
                     pass
                     
-            await page.wait_for_load_state("networkidle", timeout=30000)
             await asyncio.sleep(2)
             
             # 7. Identifica frame de edição (frmTela103070100 ou página principal)
@@ -358,14 +378,22 @@ async def lancar_pagamento_avulso(
             print(f"  [Avulso] Referência preenchida: {referencia}", flush=True)
             
             # 8.4 Data de Vencimento (Obrigatório)
-            venc_num = vencimento.strftime("%d%m%Y")
-            el_venc = await f.query_selector("#ttp_data_vencimento")
-            if el_venc:
-                await el_venc.click()
-                await el_venc.fill("")
-                await el_venc.type(venc_num, delay=40)
-                await el_venc.evaluate("el => { el.dispatchEvent(new Event('change', {bubbles:true})); el.dispatchEvent(new Event('blur', {bubbles:true})); }")
-                print(f"  [Avulso] Vencimento preenchido: {vencimento.strftime('%d/%m/%Y')}", flush=True)
+            venc_formatado = vencimento.strftime("%d/%m/%Y")
+            try:
+                el_venc = await f.query_selector("#ttp_data_vencimento")
+                if el_venc:
+                    await el_venc.fill(venc_formatado)
+                    await el_venc.evaluate("el => { el.dispatchEvent(new Event('change', {bubbles:true})); el.dispatchEvent(new Event('blur', {bubbles:true})); }")
+            except Exception:
+                await f.evaluate("""(v) => {
+                    const el = document.querySelector('#ttp_data_vencimento');
+                    if (el) {
+                        el.value = v;
+                        el.dispatchEvent(new Event('change', {bubbles: true}));
+                        el.dispatchEvent(new Event('blur', {bubbles: true}));
+                    }
+                }""", venc_formatado)
+            print(f"  [Avulso] Vencimento preenchido: {venc_formatado}", flush=True)
                 
             # 8.5 Observação (Opcional - se informada, altera; se ausente, mantém como está)
             if observacao:
@@ -382,32 +410,21 @@ async def lancar_pagamento_avulso(
                 print("  [Avulso] Observação não informada no chat; mantendo valor original herdado da cópia.", flush=True)
                 
             # 9. Gravar com 'Alterar' (#AlterarI)
-            btn_salvar = None
-            for alt_sel in ["#AlterarI", "button:has-text('Alterar')", "button[id*='Alterar']"]:
-                b_s = await f.query_selector(alt_sel)
-                if b_s and await b_s.is_visible():
-                    btn_salvar = b_s
-                    break
+            print("  [Avulso] Clicando em Gravar / Alterar...", flush=True)
+            saved = await click_alterar(f, page)
+            if not saved:
+                try:
+                    await f.evaluate("() => { const b = document.querySelector('#AlterarI') || document.querySelector('button[id*=\"Alterar\"]'); if(b) b.click(); }")
+                    saved = True
+                    await asyncio.sleep(2)
+                except Exception:
+                    pass
                     
-            if not btn_salvar:
+            if not saved:
                 return {
                     "sucesso": False,
                     "mensagem": "Botão de gravação ('Alterar') não encontrado no formulário clonado."
                 }
-                
-            print("  [Avulso] Clicando em Gravar / Alterar...", flush=True)
-            await btn_salvar.click()
-            
-            # Confirmação do salvar
-            for sel in ['button:has-text("Sim")', 'button:has-text("OK")', 'button:has-text("Confirmar")']:
-                try:
-                    b_ok = await page.wait_for_selector(sel, timeout=3000)
-                    if b_ok and await b_ok.is_visible():
-                        await b_ok.click()
-                        print(f"  [Avulso] Gravação confirmada ({sel})", flush=True)
-                        break
-                except:
-                    pass
                     
             await asyncio.sleep(3)
             
@@ -433,7 +450,7 @@ async def lancar_pagamento_avulso(
             except Exception as e:
                 print(f"  [Avulso] Erro ao gravar histórico: {e}", flush=True)
 
-            print(f"\n✅ Pagamento avulso de {fornecedor} (R$ {valor_br(valor)}) gravado com sucesso no ERP ADMSIS!\n")
+            print(f"\n[OK] Pagamento avulso de {fornecedor} (R$ {valor_br(valor)}) gravado com sucesso no ERP ADMSIS!\n")
             
             return {
                 "sucesso": True,
