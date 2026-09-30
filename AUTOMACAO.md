@@ -84,7 +84,25 @@ O sistema calcula o hash SHA-256 do arquivo recebido e salva em `data/processed_
 | `pagamentos_dia.md` | Documentação técnica e operacional completa do Relatório de Contas a Pagar do Dia |
 | `run_recebimento.py` | Executador CLI para extração de Contas a Receber do Dia / Relatório 2004 |
 | `recebimento_dia.md` | Documentação técnica e operacional completa do Relatório de Contas a Receber do Dia |
+| `src/batch_logger.py` | Gravador e consultor do histórico estruturado de execuções em lote (`batch_history.json`) |
+| `data/batch_history.json` | Log estruturado de auditoria de lotes (VR, Adiantamento, Salários) com métricas financeiras |
 | `.env` | Credenciais do ERP, filial padrão e token do Discord (`DISCORD_BOT_TOKEN`) |
-| `data/processed_hashes.json` | Banco de hashes para controle de duplicidades |
+| `data/processed_hashes.json` | Banco de hashes para controle de duplicidades individuais |
 | `logs/` | Armazena screenshots de diagnóstico e os PDFs das Autorizações de Pagamento emitidas |
+
+---
+
+## 🔒 Concorrência & Fila de Sessão ERP
+O bot do Discord gerencia o acesso ao ERP ADMSIS através de um `asyncio.Lock()` global. 
+* Se múltiplos usuários emitirem relatórios ou anexarem documentos simultaneamente, as requisições não colidem no ERP nem derrubam a sessão Playwright.
+* O bot notifica o usuário instantaneamente: `⏳ Em fila: O ERP ADMSIS está sendo utilizado por outra operação...`, liberando e processando a tarefa de forma ordenada e serializada.
+
+## 📊 Auditoria Estruturada de Lotes (`data/batch_history.json`)
+Todas as execuções de VR, Adiantamento Salarial e Pagamento de Salários gravam automaticamente um registro com:
+* Tipo do Lote, Competência, Filial, Vencimento.
+* Total de colaboradores processados vs. com sucesso.
+* Total financeiro lançado (R$).
+* Detalhamento de cada colaborador e eventuais falhas.
+* Consulta rápida no Discord via `@SofIA historico`.
+
 
