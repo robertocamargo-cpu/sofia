@@ -58,6 +58,16 @@ Permite prorrogar ou alterar o vencimento de todos os títulos que vencem em det
 
 ## 3. Fluxo de Execução Técnica (Playwright RPA)
 
+> [!IMPORTANT]
+> **REGRA FUNDAMENTAL: SEMPRE CONSIDERAR O ÚLTIMO TÍTULO ENCONTRADO**
+> O grid do ERP ADMSIS por padrão é ordenado de forma crescente por Código (`ttp_id ASC`), trazendo os títulos mais antigos na primeira página.
+> Para garantir que a alteração (ou duplicação no caso de avulsos) seja aplicada **estritamente sobre o último título realizado para o favorecido**, o robô sempre executa a ordenação decrescente:
+> ```javascript
+> $('#order_by').val('ttp_id DESC');
+> EngNavegacao.refresh();
+> ```
+> Dessa forma, a linha 1 do grid (`#btnEd_1`) passa a ser invariavelmente o título mais recente já cadastrado no sistema.
+
 ### Fluxo 1: Alteração Individual
 ```mermaid
 flowchart TD
@@ -65,10 +75,11 @@ flowchart TD
     B --> C[Login no ERP & Acesso à tela 0103070100]
     C --> D[Pesquisa Favorecido no Lookup]
     D --> E[Filtra Grid com Situação = Pendente]
-    E --> F[Abre o Título Mais Recente btnEd_1]
-    F --> G[Aplica Alterações nos Campos Solicitados]
-    G --> H[Clica em Alterar #AlterarI]
-    H --> I[Confirma Gravação & Notifica Discord com Embed]
+    E --> F[Ordena Grid por Código Decrescente ttp_id DESC]
+    F --> G[Abre o Último Título Mais Recente btnEd_1]
+    G --> H[Aplica Alterações nos Campos Solicitados]
+    H --> I[Clica em Alterar #AlterarI]
+    I --> J[Confirma Gravação & Notifica Discord com Embed]
 ```
 
 ### Fluxo 2: Alteração em Lote

@@ -392,7 +392,20 @@ async def alterar_titulo_individual(fornecedor: str, campos: Dict[str, Any]) -> 
                 await page.evaluate("() => { const b = document.querySelector('#ConfirmaFiltroS'); if(b) b.click(); }")
             await asyncio.sleep(3)
 
-            # 3. Localiza primeiro título no grid
+            # 2.1 Ordena por Código Decrescente (ttp_id DESC) para garantir SEMPRE o último título realizado
+            print("  [Alteração] Ordenando grid por Código Decrescente (ttp_id DESC) para garantir o último título...", flush=True)
+            try:
+                await page.evaluate("""() => {
+                    if (window.$ && $('#order_by').length && window.EngNavegacao) {
+                        $('#order_by').val('ttp_id DESC');
+                        EngNavegacao.refresh();
+                    }
+                }""")
+                await asyncio.sleep(3)
+            except Exception as e:
+                print(f"  [Alteração] Aviso ao ordenar grid: {e}", flush=True)
+
+            # 3. Localiza o último título no topo do grid (btnEd_1 após ordenação DESC)
             edit_links = await page.query_selector_all("a[id^='btnEd_']")
             if not edit_links:
                 await page.screenshot(path=os.path.join(LOG_DIR, "erro_alteracao_sem_titulo.png"))
@@ -402,7 +415,13 @@ async def alterar_titulo_individual(fornecedor: str, campos: Dict[str, Any]) -> 
                 }
 
             link_id = await edit_links[0].get_attribute("id")
-            print(f"  [Alteração] Abrindo título {link_id}...", flush=True)
+            info_titulo = await page.evaluate("""() => {
+                const tr = document.querySelector("#btnEd_1")?.closest('tr');
+                if (!tr) return '';
+                const tds = Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim());
+                return { codigo: tds[3] || '', emissao: tds[9] || '', vencimento: tds[10] || '', valor: tds[6] || '' };
+            }""")
+            print(f"  [Alteração] Último título localizado no grid: Código {info_titulo.get('codigo')} (Emissão {info_titulo.get('emissao')}, Venc {info_titulo.get('vencimento')}). Abrindo...", flush=True)
             try:
                 await edit_links[0].click(timeout=8000, force=True, no_wait_after=True)
             except:

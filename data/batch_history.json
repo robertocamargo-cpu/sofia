@@ -1,5 +1,55 @@
 [
   {
+    "id": "alteracao_titulo_20260930_120027",
+    "timestamp": "2026-09-30T12:00:27.211674",
+    "data_formatada": "30/09/2026 12:00:27",
+    "tipo": "ALTERACAO_TITULO",
+    "filial": "N/D",
+    "competencia": "N/D",
+    "vencimento": "N/D",
+    "total_colaboradores": 1,
+    "total_sucesso": 1,
+    "total_falhas": 0,
+    "valor_total_lancado": 0.0,
+    "arquivo": "Discord / Alteração Pontual",
+    "status": "SUCESSO",
+    "detalhes": {
+      "sucessos": [
+        {
+          "colaborador": "Eduardo Laurindo",
+          "valor": null,
+          "filial": null
+        }
+      ],
+      "falhas": []
+    }
+  },
+  {
+    "id": "alteracao_titulo_20260930_114544",
+    "timestamp": "2026-09-30T11:45:44.246758",
+    "data_formatada": "30/09/2026 11:45:44",
+    "tipo": "ALTERACAO_TITULO",
+    "filial": "N/D",
+    "competencia": "N/D",
+    "vencimento": "N/D",
+    "total_colaboradores": 1,
+    "total_sucesso": 1,
+    "total_falhas": 0,
+    "valor_total_lancado": 0.0,
+    "arquivo": "Discord / Alteração Pontual",
+    "status": "SUCESSO",
+    "detalhes": {
+      "sucessos": [
+        {
+          "colaborador": "Eduardo Laurindo",
+          "valor": null,
+          "filial": null
+        }
+      ],
+      "falhas": []
+    }
+  },
+  {
     "id": "alteracao_titulo_20260930_113846",
     "timestamp": "2026-09-30T11:38:46.037382",
     "data_formatada": "30/09/2026 11:38:46",

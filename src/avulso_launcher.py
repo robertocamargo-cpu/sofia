@@ -308,6 +308,19 @@ async def lancar_pagamento_avulso(
                 await page.evaluate("() => { const b = document.querySelector('#ConfirmaFiltroS'); if(b) b.click(); }")
                 
             await asyncio.sleep(3)
+
+            # Ordena por Código Decrescente (ttp_id DESC) para garantir que o primeiro registro seja o mais recente
+            print("  [Avulso] Ordenando grid por Código Decrescente (ttp_id DESC) para obter o último título...", flush=True)
+            try:
+                await page.evaluate("""() => {
+                    if (window.$ && $('#order_by').length && window.EngNavegacao) {
+                        $('#order_by').val('ttp_id DESC');
+                        EngNavegacao.refresh();
+                    }
+                }""")
+                await asyncio.sleep(3)
+            except Exception as e:
+                print(f"  [Avulso] Aviso ao ordenar grid: {e}", flush=True)
             
             # 4. Verifica se existem títulos no grid para duplicar
             edit_links = await page.query_selector_all("a[id^='btnEd_']")
@@ -318,7 +331,7 @@ async def lancar_pagamento_avulso(
                     "mensagem": f"O fornecedor '{fornecedor}' foi selecionado, mas não possui nenhum título anterior no sistema para ser copiado. É necessário cadastrar ao menos um título base para permitir a clonagem automática."
                 }
                 
-            # 5. O primeiro registro da lista é o mais recente / último título feito
+            # 5. O primeiro registro da lista ordenada DESC é o mais recente / último título feito
             ultimo_titulo_link = edit_links[0]
             link_id = await ultimo_titulo_link.get_attribute("id")
             print(f"  [Avulso] Último título localizado no grid: {link_id}. Abrindo...", flush=True)

@@ -27,7 +27,7 @@ Este documento descreve detalhadamente o fluxo de lançamento e duplicação aut
 | **5. Selecionar Favorecido**| Ticar a linha correspondente | `input.eng-lookup-multi-chk` ou `<td>` | Ex: `<td>EDUARDO LAURINDO DA SILVA</td>`. |
 | **6. Confirmar Seleção** | Aplicar favorecido selecionado | `<button id="btConfirmarSelecao">` | Retorna o ID do fornecedor para a tela principal. |
 | **7. Filtrar Grid** | Filtrar títulos do favorecido | `<button id="ConfirmaFiltroS">` (`<span class="fa fa-filter">`) | Recarrega o grid listando o histórico do fornecedor. |
-| **8. Localizar Último Título**| Obter o título mais recente | Primeiro registro `a[id^='btnEd_']` no topo do grid | Garante a herança das parametrizações contábeis mais atuais. |
+| **8. Localizar Último Título**| Ordenar DESC e obter o mais recente | Ordena com `ttp_id DESC` e clica no primeiro `btnEd_1` | Garante SEMPRE a herança das parametrizações contábeis do último título feito. |
 | **9. Copiar Título** | Acionar ação de cópia | `<button id="Copiar" onclick="f_Copiar()">` | Dispara a clonagem do título; aceita o diálogo `"Sim"`. |
 | **10. Preencher Valor** | Informar o valor do pagamento | `<input id="ttp_valor_titulo">` | Formatação em moeda brasileira (ex: `760` $\rightarrow$ `760,00`). |
 | **11. Preencher Filial** | Vincular à filial solicitada | `<select id="ttp_filial_id">` | Seleciona a filial de custo (ex: `429`, `601`, `Nevine`, etc.). |
