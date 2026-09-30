@@ -147,15 +147,24 @@ async def on_ready():
 @bot.event
 async def on_message(message: discord.Message):
     # Ignora mensagens do próprio bot
-    if message.author == bot.user:
-        return
-
-    # Verifica se o bot foi mencionado ou se há comando de pagamento
+    # A Sofia SÓ deve aparecer no canal se for explicitamente chamada:
+    # 1. Mencionada (@SofIA)
+    # 2. Chamada pelo nome no texto ("sofia", "olá sofia", etc.)
+    # 3. Mensagem Direta (DM privada com o bot)
+    # 4. Respondendo diretamente a uma mensagem enviada pela Sofia (reply)
     conteudo = message.content.lower()
     mencionado = bot.user in message.mentions
-    comando_pagar = any(termo in conteudo for termo in ["lance", "pagar", "pagamento", "boleto", "gnre", "holerite", "!pagar", "contas", "relatorio", "relatório", "titulos", "títulos", "receber", "recebimento", "historico", "histórico", "avulso", "altere", "alterar", "prorrogar", "mudar"])
+    chamou_por_nome = "sofia" in conteudo
+    is_dm = isinstance(message.channel, discord.DMChannel)
+    is_reply_to_sofia = bool(
+        message.reference 
+        and message.reference.resolved 
+        and getattr(message.reference.resolved, "author", None) == bot.user
+    )
 
-    if not (mencionado or comando_pagar or isinstance(message.channel, discord.DMChannel)):
+    foi_chamada = mencionado or chamou_por_nome or is_dm or is_reply_to_sofia
+
+    if not foi_chamada:
         return
 
     # Consulta de Histórico de Lotes Executados
@@ -694,25 +703,24 @@ async def on_message(message: discord.Message):
 
     # Verifica se há arquivos anexados
     if not message.attachments:
-        if mencionado:
-            embed_aviso = discord.Embed(
-                title="🤖 Olá! Sou a SofIA, sua assistente do Contas a Pagar e Receber.",
-                description=(
-                    "Como posso ajudar?\n\n"
-                    "• **Para Boletos / GNRE / Holerite:** envie `@SofIA lance este pagamento` e **anexe o PDF**.\n"
-                    "• **Para Vale Refeição (VR):** basta pedir `@SofIA faça o VR de outubro` (lido da planilha de VR).\n"
-                    "• **Para Adiantamento Salarial:** basta pedir `@SofIA lance adiantamento filial 601` ou anexe o PDF.\n"
-                    "• **Para Folha de Pagamento:** basta pedir `@SofIA lance pagamento filial 601` ou anexe o PDF.\n"
-                    "• **Para Contas a Pagar do Dia:** basta pedir `@SofIA contas a pagar de hoje` ou `@SofIA contas a pagar 03/07/2026` para receber o PDF oficial.\n"
-                    "• **Para Contas a Receber do Dia:** basta pedir `@SofIA contas a receber de hoje` ou `@SofIA recebimentos do dia` para receber o PDF oficial.\n"
-                    "• **Para Pagamento Avulso (PIX):** envie `@SofIA lance pagamento avulso para NOME, valor 760, filial 429, ref MANUTENÇÃO, vencimento hoje`.\n"
-                    "• **Para Alteração de Título:** envie `@SofIA altere o plano de contas do favorecido EDUARDO LAURINDO para 41038` ou `altere a data de vencimento do favorecido NOME para 01/10/2026`.\n"
-                    "• **Para Alteração em Lote:** envie `@SofIA altere a data de vencimento de TODOS os favorecidos de HOJE para 01/10/2026`.\n"
-                    "• **Para Histórico de Lotes:** basta pedir `@SofIA historico` para ver os últimos lançamentos em lote."
-                ),
-                color=discord.Color.blue()
-            )
-            await message.reply(embed=embed_aviso)
+        embed_aviso = discord.Embed(
+            title="🤖 Olá! Sou a SofIA, sua assistente do Contas a Pagar e Receber.",
+            description=(
+                "Como posso ajudar?\n\n"
+                "• **Para Boletos / GNRE / Holerite:** envie `@SofIA lance este pagamento` e **anexe o PDF**.\n"
+                "• **Para Vale Refeição (VR):** basta pedir `@SofIA faça o VR de outubro` (lido da planilha de VR).\n"
+                "• **Para Adiantamento Salarial:** basta pedir `@SofIA lance adiantamento filial 601` ou anexe o PDF.\n"
+                "• **Para Folha de Pagamento:** basta pedir `@SofIA lance pagamento filial 601` ou anexe o PDF.\n"
+                "• **Para Contas a Pagar do Dia:** basta pedir `@SofIA contas a pagar de hoje` ou `@SofIA contas a pagar 03/07/2026` para receber o PDF oficial.\n"
+                "• **Para Contas a Receber do Dia:** basta pedir `@SofIA contas a receber de hoje` ou `@SofIA recebimentos do dia` para receber o PDF oficial.\n"
+                "• **Para Pagamento Avulso (PIX):** envie `@SofIA lance pagamento avulso para NOME, valor 760, filial 429, ref MANUTENÇÃO, vencimento hoje`.\n"
+                "• **Para Alteração de Título:** envie `@SofIA altere o plano de contas do favorecido EDUARDO LAURINDO para 41038` ou `altere a data de vencimento do favorecido NOME para 01/10/2026`.\n"
+                "• **Para Alteração em Lote:** envie `@SofIA altere a data de vencimento de TODOS os favorecidos de HOJE para 01/10/2026`.\n"
+                "• **Para Histórico de Lotes:** basta pedir `@SofIA historico` para ver os últimos lançamentos em lote."
+            ),
+            color=discord.Color.blue()
+        )
+        await message.reply(embed=embed_aviso)
         return
 
     # Processa cada anexo recebido
