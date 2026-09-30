@@ -1,0 +1,37 @@
+[
+  {
+    "id": "pagamento_salarios_20260930_083758",
+    "timestamp": "2026-09-30T08:37:58.071909",
+    "data_formatada": "30/09/2026 08:37:58",
+    "tipo": "PAGAMENTO_SALARIOS",
+    "filial": "601",
+    "competencia": "06/2026",
+    "vencimento": "03/07/2026",
+    "total_colaboradores": 3,
+    "total_sucesso": 3,
+    "total_falhas": 0,
+    "valor_total_lancado": 6429.48,
+    "arquivo": "PAGAMENTO_601.pdf",
+    "status": "SUCESSO",
+    "detalhes": {
+      "sucessos": [
+        {
+          "colaborador": "ANA HELENA ALBUQUERQUE ROCES",
+          "valor": 3350.73,
+          "filial": "601"
+        },
+        {
+          "colaborador": "ARNALDO CESAR ACERBI",
+          "valor": 1574.45,
+          "filial": "601"
+        },
+        {
+          "colaborador": "AURORA LENIRDA DUTRA",
+          "valor": 1504.3,
+          "filial": "601"
+        }
+      ],
+      "falhas": []
+    }
+  }
+]

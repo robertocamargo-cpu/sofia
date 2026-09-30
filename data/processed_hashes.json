@@ -1,0 +1,29 @@
+{
+  "0e68761a72e200068b72b89a6d6200574c4d238fd263e4fba30a5e3289e31c49": {
+    "timestamp": "2026-09-28T11:44:08.943704",
+    "arquivo": "1554141331436081273_GNRE_NF_54949.pdf",
+    "fornecedor": "SECRETARIA DA FAZENDA - GOV. DO ESTADO DA BAHIA",
+    "valor": 546.59,
+    "vencimento": "2026-09-28",
+    "filial": "429",
+    "autorizacao_pdf": null
+  },
+  "63dfe34dc5f4b4ef4045de413e9737d7e7489a0483244df9aeb233da06c2477e": {
+    "timestamp": "2026-09-29T11:35:21.132487",
+    "arquivo": "1554501482982932551_adiantamento_601.pdf",
+    "fornecedor": "Empresa: 601 COMERCIO, SERVICOS E CONFECCOES LTDA Página: 1 / 1",
+    "valor": 848.0,
+    "vencimento": "2026-08-17",
+    "filial": "429",
+    "autorizacao_pdf": "C:\\Users\\finan\\OneDrive\\Área de Trabalho\\automacao contas a pagar\\logs\\autorizacao_pagamento_54949_20260928_114408.pdf"
+  },
+  "77d42fe1cb10c4e84c916c7e0723b7abea4e1ba4e179ab934917368f2b68aeb5": {
+    "timestamp": "2026-09-29T13:59:41.032643",
+    "arquivo": "1554537774261084332_PAGAMENTO_601.pdf",
+    "fornecedor": "Empresa: 601 COMERCIO, SERVICOS E CONFECCOES LTDA Página: 1 / 1",
+    "valor": 3350.73,
+    "vencimento": "2026-07-03",
+    "filial": "429",
+    "autorizacao_pdf": "C:\\Users\\finan\\OneDrive\\Área de Trabalho\\automacao contas a pagar\\logs\\autorizacao_pagamento_54949_20260928_114408.pdf"
+  }
+}
