@@ -198,10 +198,19 @@ async def selecionar_fornecedor_lookup(page, termo_busca: str) -> bool:
             await asyncio.sleep(0.2)
             await lk_frame.fill("#txtPesquisa", t_pesq)
             await asyncio.sleep(0.3)
-            try:
-                await lk_frame.click("#btEnviar", timeout=5000, force=True, no_wait_after=True)
-            except Exception:
-                await lk_frame.evaluate("() => { const b = document.querySelector('#btEnviar'); if(b) b.click(); }")
+            # Submete a pesquisa evitando o input hidden id="btEnviar"
+            submetido = False
+            for sel_btn in ["button#btEnviar", "input[type='submit']", "button[type='submit']", "button:has-text('Pesquisar')"]:
+                try:
+                    btn_pesq = await lk_frame.query_selector(sel_btn)
+                    if btn_pesq and await btn_pesq.is_visible():
+                        await btn_pesq.click(timeout=3000, force=True, no_wait_after=True)
+                        submetido = True
+                        break
+                except:
+                    pass
+            if not submetido:
+                await lk_frame.evaluate("() => { if(window.Pesquisa && Pesquisa.submit) { Pesquisa.submit(); } else { const b = document.querySelector('input[type=\"submit\"], button#btEnviar, button[type=\"submit\"]'); if(b) b.click(); } }")
             await asyncio.sleep(2)
         except Exception as e:
             print(f"  [Avulso] Erro ao submeter pesquisa: {e}", flush=True)
