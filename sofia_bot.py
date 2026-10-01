@@ -713,8 +713,11 @@ async def on_message(message: discord.Message):
                 await status_msg.edit(content=f"❌ Erro ao gerar relatório de contas a receber: `{err}`")
                 return
 
-    # Verifica se há arquivos anexados
-    if not message.attachments:
+    # Mostra o menu de ajuda/comandos SOMENTE se o usuário solicitar explicitamente (ou marcar apenas @SofIA)
+    texto_limpo = conteudo.replace(f"<@{bot.user.id}>", "").replace(f"<@!{bot.user.id}>", "").replace("sofia", "").strip()
+    pediu_ajuda = any(k in conteudo for k in ["ajuda", "help", "menu", "comandos", "manual", "o que você faz", "o que voce faz"]) or texto_limpo in ["", "?", "oi", "olá", "ola"]
+
+    if pediu_ajuda:
         embed_aviso = discord.Embed(
             title="🤖 Olá! Sou a SofIA, sua assistente do Contas a Pagar e Receber.",
             description=(
@@ -733,6 +736,10 @@ async def on_message(message: discord.Message):
             color=discord.Color.blue()
         )
         await message.reply(embed=embed_aviso)
+        return
+
+    # Se não pediu ajuda e não há arquivos anexados, permanece em silêncio para não poluir o canal
+    if not message.attachments:
         return
 
     # Processa cada anexo recebido
