@@ -507,22 +507,31 @@ async def on_message(message: discord.Message):
         elif "429" in conteudo:
             filial_alvo = "429"
 
+        # Para folha de pagamento, é OBRIGATÓRIO o envio do PDF com o resumo de líquido
         pdf_alvo = None
-        candidatos = [
-            f"PAGAMENTO_{filial_alvo}.pdf" if filial_alvo else None,
-            "PAGAMENTO_601.pdf",
-            "PAGAMENTO_429.pdf",
-            "PAGAMENTO_NEVINE.pdf",
-        ]
-        for c in candidatos:
-            if c:
-                caminho_teste = os.path.join(os.path.dirname(__file__), c)
-                if os.path.isfile(caminho_teste):
-                    pdf_alvo = caminho_teste
+        if message.attachments:
+            for att in message.attachments:
+                if att.filename.lower().endswith(".pdf"):
+                    temp_filename = f"{message.id}_{att.filename}"
+                    pdf_alvo = os.path.join(INBOX_DIR, temp_filename)
+                    await att.save(pdf_alvo)
                     break
-                    
-        if pdf_alvo:
-            async with gerenciar_sessao_erp(message, f"Folha de Pagamento ({os.path.basename(pdf_alvo)})"):
+
+        if not pdf_alvo:
+            embed_precisa_pdf = discord.Embed(
+                title="⚠️ Envio de PDF Obrigatório",
+                description=(
+                    "Para o lançamento de **Folha de Pagamento / Salários**, é **obrigatório anexar o PDF** com o resumo dos valores líquidos.\n\n"
+                    "💡 *Exemplo de comando:*\n"
+                    f"> `@SofIA lance folha de pagamento filial {filial_alvo or '601'}` *(anexando o PDF do resumo de líquido)*"
+                ),
+                color=discord.Color.gold()
+            )
+            embed_precisa_pdf.set_footer(text="Automação Contas a Pagar • ADMSIS ERP")
+            await message.reply(embed=embed_precisa_pdf)
+            return
+
+        async with gerenciar_sessao_erp(message, f"Folha de Pagamento ({os.path.basename(pdf_alvo)})"):
                 status_msg = await message.reply(f"💼 **Comando de Folha de Pagamento detectado!**\nArquivo: `{os.path.basename(pdf_alvo)}`\nIniciando lançamentos no ERP ADMSIS...")
                 try:
                     from pagamento_launcher import processar_pagamento_pdf
@@ -710,7 +719,7 @@ async def on_message(message: discord.Message):
                 "• **Para Boletos / GNRE / Holerite:** envie `@SofIA lance este pagamento` e **anexe o PDF**.\n"
                 "• **Para Vale Refeição (VR):** basta pedir `@SofIA faça o VR de outubro` (lido da planilha de VR).\n"
                 "• **Para Adiantamento Salarial:** basta pedir `@SofIA lance adiantamento filial 601` ou anexe o PDF.\n"
-                "• **Para Folha de Pagamento:** basta pedir `@SofIA lance pagamento filial 601` ou anexe o PDF.\n"
+                "• **Para Folha de Pagamento:** envie `@SofIA lance pagamento filial 601` e **anexe o PDF** com o resumo de líquido.\n"
                 "• **Para Contas a Pagar do Dia:** basta pedir `@SofIA contas a pagar de hoje` ou `@SofIA contas a pagar 03/07/2026` para receber o PDF oficial.\n"
                 "• **Para Contas a Receber do Dia:** basta pedir `@SofIA contas a receber de hoje` ou `@SofIA recebimentos do dia` para receber o PDF oficial.\n"
                 "• **Para Pagamento Avulso (PIX):** envie `@SofIA lance pagamento avulso para NOME, valor 760, filial 429, ref MANUTENÇÃO, vencimento hoje`.\n"
