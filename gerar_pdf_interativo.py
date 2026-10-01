@@ -345,6 +345,7 @@ HTML_CONTENT = """<!DOCTYPE html>
         <a class="toc-link" href="#job-9"><span class="toc-num">9</span> 09. Relatório Oficial Contas a Pagar (2015)</a>
         <a class="toc-link" href="#job-10"><span class="toc-num">10</span> 10. Relatório Oficial Contas a Receber (2004)</a>
         <a class="toc-link" href="#job-11"><span class="toc-num">11</span> 11. Consulta de Histórico de Lotes</a>
+        <a class="toc-link" href="#job-12"><span class="toc-num">12</span> 12. Incentivo / Prêmio de Vendas (Nevine)</a>
       </div>
     </div>
 
@@ -637,6 +638,39 @@ HTML_CONTENT = """<!DOCTYPE html>
             <span class="command-label">Comando no Discord</span>
             <span class="command-code">@SofIA historico</span>
             <span class="command-note">Ou: "sofia histórico de lotes"</span>
+          </div>
+          <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 12. PREMIO DE VENDAS -->
+    <div class="job-section" id="job-12">
+      <div class="job-card">
+        <div class="job-header">
+          <div class="job-title-group">
+            <span class="job-icon">🏆</span>
+            <span class="job-title">12. Apuração de Incentivo / Prêmio de Vendas (Nevine)</span>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-tela">Google Sheets</span>
+            <span class="badge badge-auto">Relatório PDF</span>
+          </div>
+        </div>
+        <div class="job-body">
+          <p class="job-desc">Conecta à base oficial de vendas no Google Sheets, filtra pedidos elegíveis excluindo status reprovados/cancelados e calcula a premiação comercial consolidando regras F1 (Cliente Novo) e F2 (Espaço Nevine), gerando ranking e relatório em PDF.</p>
+          <div class="rules-list">
+            <strong>⚙️ Critérios de Bonificação Aplicados:</strong>
+            <ul>
+              <li><strong>F1 (Cliente Novo):</strong> <code>ind_cliente_novo == "CLIENTE NOVO"</code> e <code>ope_descricao == "* VENDA"</code>.</li>
+              <li><strong>F2 (Espaço Nevine):</strong> Cliente recorrente e <code>ope_descricao</code> contendo <code>"ESPAÇO NEVINE"</code>.</li>
+              <li><strong>Desconsidera:</strong> Status <code>APROVACAO</code>, <code>ANALISE DE CREDITO</code>, <code>VENDEDOR</code>, <code>FATURAMENTO DENEGADO</code> e <code>CANCELADO</code>.</li>
+            </ul>
+          </div>
+          <div class="command-box">
+            <span class="command-label">Comandos no Discord</span>
+            <span class="command-code">@SofIA calcule o prêmio de setembro</span>
+            <span class="command-note">Ou: "@SofIA apurar incentivo", "@SofIA prêmio deste mês", "@SofIA comissão de agosto"</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>

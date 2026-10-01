@@ -713,6 +713,54 @@ async def on_message(message: discord.Message):
                 await status_msg.edit(content=f"❌ Erro ao gerar relatório de contas a receber: `{err}`")
                 return
 
+    # Verifica se e comando de Incentivo / Prêmio de Vendas (Nevine)
+    if any(k in conteudo for k in ["premio", "prêmio", "incentivo", "comissao", "comissão"]):
+        status_msg = await message.reply(
+            "🏆 **Comando de Incentivo / Prêmio de Vendas detectado!**\n"
+            "Conectando à base oficial de vendas e consolidando os bônus por vendedor..."
+        )
+        try:
+            from premio_launcher import apurar_premio_vendas, formatar_tabela_ranking_discord
+            res = await apurar_premio_vendas(message.content)
+
+            embed_premio = discord.Embed(
+                title=f"🏆 Incentivo de Vendas Nevine - {res['periodo_label']}",
+                description=(
+                    f"Apuração consolidada da premiação comercial para o período **{res['periodo_label']}**.\n\n"
+                    f"**📊 Ranking Consolidado:**\n{formatar_tabela_ranking_discord(res['ranking'])}"
+                ),
+                color=discord.Color.gold()
+            )
+            embed_premio.add_field(name="📅 Período de Vendas", value=f"`{res['dt_inicio']} a {res['dt_fim']}`", inline=True)
+            embed_premio.add_field(name="📦 Pedidos Elegíveis", value=f"**{res['total_pedidos']} pedidos**", inline=True)
+            embed_premio.add_field(name="💰 Premiação Total", value=f"**{res['total_premio_str']}**", inline=True)
+            embed_premio.add_field(name="🛒 Volume de Vendas", value=f"**{res['total_vendas_str']}**", inline=True)
+            embed_premio.add_field(
+                name="🏷️ Desdobramento por Regra de Bonificação",
+                value=(
+                    f"• **F1 (Cliente Novo):** {res['subtotal_f1']['pedidos']} pedidos | {res['subtotal_f1']['vendas_str']} vendas | {res['subtotal_f1']['premio_str']} bônus\n"
+                    f"• **F2 (Espaço Nevine):** {res['subtotal_f2']['pedidos']} pedidos | {res['subtotal_f2']['vendas_str']} vendas | {res['subtotal_f2']['premio_str']} bônus"
+                ),
+                inline=False
+            )
+            embed_premio.set_footer(text="Automação Comercial & Financeira • Planilha Oficial Google Sheets (Nevine)")
+
+            anexos = []
+            if res.get("pdf_path") and os.path.exists(res["pdf_path"]):
+                anexos.append(discord.File(res["pdf_path"], filename=f"Incentivo_Vendas_{res['periodo_label'].replace('/', '-').replace(' ', '_')}.pdf"))
+            elif res.get("html_path") and os.path.exists(res["html_path"]):
+                anexos.append(discord.File(res["html_path"], filename=f"Incentivo_Vendas_{res['periodo_label'].replace('/', '-').replace(' ', '_')}.html"))
+
+            await status_msg.delete()
+            if anexos:
+                await message.reply(embed=embed_premio, files=anexos)
+            else:
+                await message.reply(embed=embed_premio)
+            return
+        except Exception as err:
+            await status_msg.edit(content=f"❌ Erro ao apurar incentivo de vendas: `{err}`")
+            return
+
     # Mostra o menu de ajuda/comandos SOMENTE se o usuário solicitar explicitamente (ou marcar apenas @SofIA)
     texto_limpo = conteudo.replace(f"<@{bot.user.id}>", "").replace(f"<@!{bot.user.id}>", "").replace("sofia", "").strip()
     pediu_ajuda = any(k in conteudo for k in ["ajuda", "help", "menu", "comandos", "manual", "o que você faz", "o que voce faz"]) or texto_limpo in ["", "?", "oi", "olá", "ola"]
@@ -731,7 +779,8 @@ async def on_message(message: discord.Message):
                 "• **Para Pagamento Avulso (PIX):** envie `@SofIA lance pagamento avulso para NOME, valor 760, filial 429, ref MANUTENÇÃO, vencimento hoje`.\n"
                 "• **Para Alteração de Título:** envie `@SofIA altere o plano de contas do favorecido EDUARDO LAURINDO para 41038` ou `altere a data de vencimento do favorecido NOME para 01/10/2026`.\n"
                 "• **Para Alteração em Lote:** envie `@SofIA altere a data de vencimento de TODOS os favorecidos de HOJE para 01/10/2026`.\n"
-                "• **Para Histórico de Lotes:** basta pedir `@SofIA historico` para ver os últimos lançamentos em lote."
+                "• **Para Histórico de Lotes:** basta pedir `@SofIA historico` para ver os últimos lançamentos em lote.\n"
+                "• **Para Prêmio / Incentivo de Vendas:** basta pedir `@SofIA calcule o prêmio de setembro` ou `@SofIA apurar incentivo` para receber o ranking e o PDF oficial."
             ),
             color=discord.Color.blue()
         )

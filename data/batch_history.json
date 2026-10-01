@@ -1,5 +1,43 @@
 [
   {
+    "id": "premio_vendas_20261001_110129",
+    "timestamp": "2026-10-01T11:01:29.957578",
+    "data_formatada": "01/10/2026 11:01:29",
+    "tipo": "PREMIO_VENDAS",
+    "filial": "N/D",
+    "competencia": "Setembro/2026",
+    "vencimento": "N/D",
+    "total_colaboradores": 0,
+    "total_sucesso": 0,
+    "total_falhas": 0,
+    "valor_total_lancado": 0.0,
+    "arquivo": "Google Sheets / Setembro/2026",
+    "status": "FALHA",
+    "detalhes": {
+      "sucessos": [],
+      "falhas": []
+    }
+  },
+  {
+    "id": "premio_vendas_20261001_110039",
+    "timestamp": "2026-10-01T11:00:39.030291",
+    "data_formatada": "01/10/2026 11:00:39",
+    "tipo": "PREMIO_VENDAS",
+    "filial": "N/D",
+    "competencia": "Setembro/2026",
+    "vencimento": "N/D",
+    "total_colaboradores": 3,
+    "total_sucesso": 3,
+    "total_falhas": 0,
+    "valor_total_lancado": 787.02,
+    "arquivo": "Google Sheets / Setembro/2026",
+    "status": "SUCESSO",
+    "detalhes": {
+      "sucessos": [],
+      "falhas": []
+    }
+  },
+  {
     "id": "alteracao_titulo_20260930_120027",
     "timestamp": "2026-09-30T12:00:27.211674",
     "data_formatada": "30/09/2026 12:00:27",
