@@ -146,7 +146,10 @@ async def on_ready():
 
 @bot.event
 async def on_message(message: discord.Message):
-    # Ignora mensagens do próprio bot
+    # 1. Ignora IMEDIATAMENTE mensagens do próprio bot e de qualquer outro bot (evita loop infinito)
+    if message.author == bot.user or message.author.bot:
+        return
+
     # A Sofia SÓ deve aparecer no canal se for explicitamente chamada:
     # 1. Mencionada (@SofIA)
     # 2. Chamada pelo nome no texto ("sofia", "olá sofia", etc.)
