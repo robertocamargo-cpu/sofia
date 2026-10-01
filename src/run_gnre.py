@@ -189,9 +189,10 @@ async def run_gnre_process(pdf_path: str):
         return False, None
 
     data = extract_invoice_data(pdf_path)
-    entry = data if isinstance(data, list) else [data]
-    entry = entry[0]
+    entries = data if isinstance(data, list) else [data]
+    entry = entries[0]
     entry["pdf_path"] = pdf_path
+    entry["tipo"] = "GNRE"
     if not entry.get("filial"):
         entry["filial"] = "429"
     doc_num = entry.get("documento", "")

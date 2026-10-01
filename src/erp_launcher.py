@@ -352,12 +352,14 @@ async def fill_fields(page, ctx, entry):
     venc = entry.get("vencimento")
     tipo = entry.get("tipo", "")
     if venc:
-        # Boletos lidos via PDF: aplica a regra 'sempre -1 dia' antecipando se fim de semana
-        if tipo == "Boleto" or entry.get("pdf_path"):
+        # A regra de D-1 (vencimento - 1 dia) é EXCLUSIVA para Boletos e Faturas comerciais.
+        # Para GNRE e tributos fiscais, o vencimento é ESTRITAMENTE o que está na guia de pagamento (sem D-1).
+        if tipo in ("Boleto", "Fatura"):
             venc_para_gravar = calcular_vencimento_erp(venc)
             print(f"  Vencimento do Boleto: {venc.strftime('%d/%m/%Y')} -> Gravando no ERP como D-1: {venc_para_gravar.strftime('%d/%m/%Y')}", flush=True)
         else:
             venc_para_gravar = venc
+            print(f"  Vencimento mantido original da Guia/Doc ({tipo or 'GNRE/Geral'}): {venc_para_gravar.strftime('%d/%m/%Y')}", flush=True)
 
         val_digits = venc_para_gravar.strftime("%d%m%Y")
         try:

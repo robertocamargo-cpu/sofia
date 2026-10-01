@@ -142,13 +142,27 @@ class GNREParser(BaseParser):
         return None
 
     def _extract_vencimento(self, text: str) -> datetime | None:
-        m = re.search(r"Vencimento[:\s]*(\d{2}/\d{2}/\d{4})", text, re.IGNORECASE)
-        if m:
-            try:
-                return datetime.strptime(m.group(1), "%d/%m/%Y").date()
-            except ValueError:
-                pass
-        m = re.search(r"(\d{2}/\d{2}/\d{4})", text)
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        for i, line in enumerate(lines):
+            if re.search(r"Data\s+de\s+Vencimento|Vencimento", line, re.IGNORECASE):
+                # 1. Tenta encontrar data na mesma linha
+                m = re.search(r"(\d{2}/\d{2}/\d{4})", line)
+                if m:
+                    try:
+                        return datetime.strptime(m.group(1), "%d/%m/%Y").date()
+                    except ValueError:
+                        pass
+                # 2. Tenta encontrar data na linha seguinte (layout padrão de colunas da GNRE)
+                if i + 1 < len(lines):
+                    m = re.search(r"(\d{2}/\d{2}/\d{4})", lines[i + 1])
+                    if m:
+                        try:
+                            return datetime.strptime(m.group(1), "%d/%m/%Y").date()
+                        except ValueError:
+                            pass
+
+        # 3. Fallback: Qualquer expressão Vencimento seguida de data
+        m = re.search(r"Vencimento[^\d]*(\d{2}/\d{2}/\d{4})", text, re.IGNORECASE)
         if m:
             try:
                 return datetime.strptime(m.group(1), "%d/%m/%Y").date()
