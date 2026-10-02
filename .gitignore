@@ -24,7 +24,13 @@ temp/
 *.mp4
 *.avi
 *.mkv
+*.webm
+videos/
+sessao_robo/
+locks/
+*.db
 
 # IDEs
 .vscode/
 .idea/
+.DS_Store
