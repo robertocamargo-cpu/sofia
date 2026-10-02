@@ -16,6 +16,7 @@ import os
 import sys
 import asyncio
 import tempfile
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -134,7 +135,83 @@ def formatar_tabela_individual(entry: dict) -> str:
         f"{'Situação':<16} | Gravado no ERP com Sucesso ✅",
         "```"
     ]
-    return "\n".join(linhas)
+
+# ── AGENDADOR AUTOMÁTICO DE TAREFAS (CRON INTELIGENTE) ──────────────────────
+async def executar_tarefa_agendada(nome: str, coro_func):
+    """Executa uma rotina automática serializada pelo erp_lock."""
+    async with erp_lock:
+        print(f"\n[CRON] 🚀 Iniciando execução automática: {nome}...")
+        try:
+            await coro_func()
+            print(f"[CRON] ✅ Concluído com sucesso: {nome}!\n")
+        except Exception as e:
+            print(f"[CRON] ❌ Erro ao executar {nome}: {e}\n")
+
+async def _rodar_nfe_cron():
+    from gerar_nfe_automatica import main as nfe_main
+    await nfe_main()
+
+async def _rodar_gnre_cron():
+    from gnre_emissao.gnre_pipeline import executar_pipeline
+    await asyncio.to_thread(executar_pipeline)
+
+async def _rodar_previsao_cron():
+    from automacao_previsao import executar_previsao
+    await executar_previsao()
+
+# Armazena estado dos agendamentos para consulta no Discord
+agendamentos_status = {
+    "ativo": True,
+    "ultima_execucao": {},
+    "proxima_execucao": "Calculando..."
+}
+
+async def agendador_sofia():
+    """
+    Loop assíncrono em segundo plano que monitora o relógio e dispara
+    as rotinas agendadas (NF-e, GNRE, Previsão) respeitando o erp_lock.
+    """
+    await bot.wait_until_ready()
+    print("[AGENDADOR] ⏰ Agendador de tarefas em segundo plano ATIVO e operacional!")
+
+    ultimas_execucoes = {}
+
+    while not bot.is_closed():
+        try:
+            agora = datetime.now()
+            dia_semana = agora.weekday() # 0 = Segunda, 4 = Sexta
+            hh_mm = (agora.hour, agora.minute)
+            chave_minuto = (agora.date(), agora.hour, agora.minute)
+
+            # Executa apenas nos dias úteis (Segunda a Sexta)
+            if dia_semana in range(5):
+                # 1. NF-e Horária (07:50, 08:50, 09:50, 10:50, 11:50, 12:50, 13:50, 14:50, 15:50, 16:50, 17:50)
+                horarios_nfe = [
+                    (7, 50), (8, 50), (9, 50), (10, 50), (11, 50),
+                    (12, 50), (13, 50), (14, 50), (15, 50), (16, 50), (17, 50)
+                ]
+                if hh_mm in horarios_nfe and ultimas_execucoes.get("nfe") != chave_minuto:
+                    ultimas_execucoes["nfe"] = chave_minuto
+                    agendamentos_status["ultima_execucao"]["nfe"] = agora.strftime("%d/%m/%Y %H:%M")
+                    asyncio.create_task(executar_tarefa_agendada(f"NF-e / Faturamento ({agora.strftime('%H:%M')})", _rodar_nfe_cron))
+
+                # 2. GNRE (09:00, 11:00, 14:00, 16:00)
+                horarios_gnre = [(9, 0), (11, 0), (14, 0), (16, 0)]
+                if hh_mm in horarios_gnre and ultimas_execucoes.get("gnre") != chave_minuto:
+                    ultimas_execucoes["gnre"] = chave_minuto
+                    agendamentos_status["ultima_execucao"]["gnre"] = agora.strftime("%d/%m/%Y %H:%M")
+                    asyncio.create_task(executar_tarefa_agendada(f"GNRE Sefaz ({agora.strftime('%H:%M')})", _rodar_gnre_cron))
+
+                # 3. Previsão Financeira (09:30)
+                if hh_mm == (9, 30) and ultimas_execucoes.get("previsao") != chave_minuto:
+                    ultimas_execucoes["previsao"] = chave_minuto
+                    agendamentos_status["ultima_execucao"]["previsao"] = agora.strftime("%d/%m/%Y %H:%M")
+                    asyncio.create_task(executar_tarefa_agendada(f"Previsão Financeira ({agora.strftime('%H:%M')})", _rodar_previsao_cron))
+
+        except Exception as ex:
+            print(f"[AGENDADOR] Erro no loop de agendamento: {ex}")
+
+        await asyncio.sleep(20)
 
 @bot.event
 async def on_ready():
@@ -156,6 +233,9 @@ async def on_ready():
             print(f"[API] Aviso ao iniciar servidor de métricas: {ex}")
 
     threading.Thread(target=rodar_api_metricas, daemon=True).start()
+
+    # Inicia o agendador de tarefas em segundo plano da SofIA
+    asyncio.create_task(agendador_sofia())
 
 @bot.event
 async def on_message(message: discord.Message):
@@ -1054,6 +1134,44 @@ async def on_message(message: discord.Message):
             await message.reply(f"❌ Erro ao consultar métricas: `{ex}`")
             return
 
+    # ── 9. CRONOGRAMA DE TAREFAS AUTOMÁTICAS ──────────────────────────────
+    if any(k in conteudo for k in ["agendamento", "agendamentos", "cronograma", "tarefas agendadas", "cron"]) and not any(k in conteudo for k in ["ajuda", "menu"]):
+        embed_cron = discord.Embed(
+            title="⏰ Cronograma de Tarefas Automáticas - Super SofIA",
+            description="Todas as rotinas em segundo plano são executadas com fila serializada (`erp_lock`), sem risco de travamento de sessão.",
+            color=discord.Color.purple()
+        )
+        embed_cron.add_field(
+            name="🏭 Faturamento & NF-e (De hora em hora)",
+            value="• **Horários:** `07:50, 08:50, 09:50, 10:50, 11:50, 12:50, 13:50, 14:50, 15:50, 16:50, 17:50`\n• **Dias:** Segunda a Sexta\n• **Regra:** Às 07:50 fatura o dia atual; a partir das 08:50 adianta para o próximo dia útil.",
+            inline=False
+        )
+        embed_cron.add_field(
+            name="🏛️ Emissão de Guias GNRE (Portal Sefaz)",
+            value="• **Horários:** `09:00, 11:00, 14:00, 16:00`\n• **Dias:** Segunda a Sexta\n• **Ação:** Varredura de pedidos interestaduais na planilha e emissão automática.",
+            inline=False
+        )
+        embed_cron.add_field(
+            name="📈 Previsão Financeira (Google Sheets)",
+            value="• **Horário:** `09:30`\n• **Dias:** Segunda a Sexta\n• **Ação:** Baixa relatórios 2004/2015 e preenche a aba do dia.",
+            inline=False
+        )
+
+        status_txt = []
+        for rotina, dth in agendamentos_status.get("ultima_execucao", {}).items():
+            status_txt.append(f"• **{rotina.upper()}:** Última execução em `{dth}`")
+        if not status_txt:
+            status_txt.append("• Agendador ativo e aguardando o próximo horário programado.")
+
+        embed_cron.add_field(
+            name="📊 Status em Tempo Real",
+            value="\n".join(status_txt),
+            inline=False
+        )
+        embed_cron.set_footer(text="Agendador Interno da SofIA • Concorrência Protegida por Lock")
+        await message.reply(embed=embed_cron)
+        return
+
     # Mostra o menu de ajuda/comandos SOMENTE se o usuário solicitar explicitamente (ou marcar apenas @SofIA)
     texto_limpo = conteudo.replace(f"<@{bot.user.id}>", "").replace(f"<@!{bot.user.id}>", "").replace("sofia", "").strip()
     pediu_ajuda = any(k in conteudo for k in ["ajuda", "help", "menu", "comandos", "manual", "o que você faz", "o que voce faz"]) or texto_limpo in ["", "?", "oi", "olá", "ola"]
@@ -1108,7 +1226,8 @@ async def on_message(message: discord.Message):
             name="5️⃣ Gestão & Auditoria",
             value=(
                 "• **Histórico de Lotes:** `@SofIA historico` *(auditoria dos últimos lotes processados)*\n"
-                "• **Dashboard de Métricas:** `@SofIA metricas` *(resumo operacional + servidor HTTP porta 8080)*"
+                "• **Dashboard de Métricas:** `@SofIA metricas` *(resumo operacional + servidor HTTP porta 8080)*\n"
+                "• **Tarefas Agendadas (Cron):** `@SofIA agendamentos` *(cronograma e status das automações em segundo plano)*"
             ),
             inline=False
         )
