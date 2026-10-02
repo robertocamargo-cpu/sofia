@@ -139,10 +139,23 @@ def formatar_tabela_individual(entry: dict) -> str:
 @bot.event
 async def on_ready():
     print(f"\n{'='*60}")
-    print(f"  SOFIA ONLINE! Logado como: {bot.user.name} (ID: {bot.user.id})")
-    print(f"  Pronta para receber documentos no Discord!")
+    print(f"  SUPER SOFIA ONLINE! Logado como: {bot.user.name} (ID: {bot.user.id})")
+    print(f"  Todas as automações unificadas e prontas no Discord!")
     print(f"{'='*60}\n")
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="Contas a Pagar"))
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="ADMSIS ERP & Financeiro"))
+
+    # Inicia o servidor HTTP de métricas (Porta 8080) em segundo plano se não estiver rodando
+    import threading
+    def rodar_api_metricas():
+        try:
+            from api_server import iniciar_servidor
+            iniciar_servidor(8080)
+        except OSError:
+            print("[API] Servidor de métricas na porta 8080 já ativo no sistema.")
+        except Exception as ex:
+            print(f"[API] Aviso ao iniciar servidor de métricas: {ex}")
+
+    threading.Thread(target=rodar_api_metricas, daemon=True).start()
 
 @bot.event
 async def on_message(message: discord.Message):
@@ -761,29 +774,345 @@ async def on_message(message: discord.Message):
             await status_msg.edit(content=f"❌ Erro ao apurar incentivo de vendas: `{err}`")
             return
 
+    # ── 1. FATURAMENTO / EMISSÃO DE NF-e ────────────────────────────────────
+    if any(k in conteudo for k in ["crie a nf", "gerar nf", "gerar nfe", "emitir nf", "emitir nfe", "faturar"]):
+        import re
+        m_ped = re.search(r"\b(?:nf[e]?|faturar|fature|pedido)?\s*(\d{3,8})\b", conteudo)
+        if not m_ped:
+            await message.reply("⚠️ Por favor, informe o número do pedido para faturamento. Exemplo:\n> `@SofIA faturar pedido 1585` ou `@SofIA crie a NF 1585`")
+            return
+        num_pedido = m_ped.group(1)
+        async with gerenciar_sessao_erp(message, f"Faturamento NF-e Pedido {num_pedido}"):
+            status_msg = await message.reply(f"🏭 **Faturamento de NF-e Iniciado!**\nPedido: `{num_pedido}`\nAcessando ERP ADMSIS, autorizando NF-e e verificando boleto...")
+            try:
+                from gerar_nfe_automatica import processar_pedido_avulso
+                res_nfe = await processar_pedido_avulso(num_pedido)
+                cor = discord.Color.green() if ("OK" in str(res_nfe) or "autorizada" in str(res_nfe).lower()) else discord.Color.gold()
+                embed_nfe = discord.Embed(
+                    title=f"📑 Resultado Faturamento NF-e - Pedido {num_pedido}",
+                    description=f"Status: **{res_nfe}**",
+                    color=cor
+                )
+                embed_nfe.set_footer(text="Automação NFe • ADMSIS ERP")
+                await status_msg.edit(content=None, embed=embed_nfe)
+            except Exception as ex:
+                await status_msg.edit(content=f"❌ Erro ao faturar pedido `{num_pedido}`: `{ex}`")
+            return
+
+    # ── 2. CONSULTA DE DANFE / XML DE NF-e ──────────────────────────────────
+    if any(k in conteudo for k in ["danfe", "ver nf", "ver nfe", "xml", "consultar nf", "baixar nf"]) and not any(k in conteudo for k in ["fechamento", "fechar"]):
+        import re
+        m_ped = re.search(r"\b(\d{3,8})\b", conteudo)
+        if not m_ped:
+            await message.reply("⚠️ Por favor, informe o número do pedido para consulta do DANFE/XML. Exemplo:\n> `@SofIA danfe 1585`")
+            return
+        num_pedido = m_ped.group(1)
+        async with gerenciar_sessao_erp(message, f"Consulta DANFE Pedido {num_pedido}"):
+            status_msg = await message.reply(f"🔍 **Consultando DANFE/XML no ERP...**\nPedido: `{num_pedido}`\nLocalizando nota na tela 0103050100...")
+            try:
+                from gerar_nfe_automatica import obter_arquivos_nfe_pedido
+                arquivos = await obter_arquivos_nfe_pedido(num_pedido)
+                if arquivos:
+                    anexos_discord = [discord.File(f) for f in arquivos if os.path.exists(f)]
+                    embed_danfe = discord.Embed(
+                        title=f"📄 DANFE / XML - Pedido {num_pedido}",
+                        description=f"Foram localizados **{len(anexos_discord)} arquivo(s)** da nota fiscal no ERP ADMSIS.",
+                        color=discord.Color.green()
+                    )
+                    embed_danfe.set_footer(text="Automação NFe • ADMSIS ERP")
+                    await status_msg.delete()
+                    await message.reply(embed=embed_danfe, files=anexos_discord)
+                else:
+                    embed_vazio = discord.Embed(
+                        title="⚠️ DANFE Não Localizado",
+                        description=f"Não foi possível obter o DANFE/XML para o pedido `{num_pedido}` no ERP. Verifique se o pedido já foi devidamente faturado.",
+                        color=discord.Color.gold()
+                    )
+                    await status_msg.edit(content=None, embed=embed_vazio)
+            except Exception as ex:
+                await status_msg.edit(content=f"❌ Erro ao consultar DANFE do pedido `{num_pedido}`: `{ex}`")
+            return
+
+    # ── 3. ORDEM DE PRODUÇÃO (OP) ──────────────────────────────────────────
+    if any(k in conteudo for k in ["ordem de produção", "ordem de producao", "avançar op", "avancar op", "concluir op", "op "]):
+        import re
+        m_ped = re.search(r"\b(\d{3,8})\b", conteudo)
+        if not m_ped:
+            await message.reply("⚠️ Por favor, informe o número da OP/Pedido. Exemplo:\n> `@SofIA avançar op 1585`")
+            return
+        num_pedido = m_ped.group(1)
+        async with gerenciar_sessao_erp(message, f"Ordem de Produção Pedido {num_pedido}"):
+            status_msg = await message.reply(f"⚙️ **Ordem de Produção detectada!**\nPedido/OP: `{num_pedido}`\nAcessando tela 0102080100 e concluindo componente...")
+            try:
+                from gerar_nfe_automatica import avancar_ordem_producao
+                res_op = await avancar_ordem_producao(num_pedido)
+                cor = discord.Color.green() if "OK" in res_op else discord.Color.red()
+                embed_op = discord.Embed(
+                    title=f"⚙️ Ordem de Produção - Pedido {num_pedido}",
+                    description=res_op,
+                    color=cor
+                )
+                embed_op.set_footer(text="Automação OP • ADMSIS ERP")
+                await status_msg.edit(content=None, embed=embed_op)
+            except Exception as ex:
+                await status_msg.edit(content=f"❌ Erro ao processar ordem de produção: `{ex}`")
+            return
+
+    # ── 4. EMISSÃO DE GUIA GNRE (SEFAZ) ────────────────────────────────────
+    if any(k in conteudo for k in ["crie a gnre", "emitir gnre", "gerar gnre", "gnre do pedido", "emitir guia gnre", "gerar guia gnre", "verificar gnre"]):
+        import re
+        m_ped = re.search(r"\b(\d{3,8})\b", conteudo)
+        pedido_gnre = m_ped.group(1) if m_ped else None
+        
+        async with gerenciar_sessao_erp(message, f"Emissão de GNRE ({pedido_gnre or 'Planilha'})"):
+            status_msg = await message.reply(
+                f"🏛️ **Automação de GNRE Iniciada!**\n"
+                + (f"Pedido específico: `{pedido_gnre}`\n" if pedido_gnre else "Varrendo pedidos interestaduais pendentes na planilha de transporte...\n")
+                + "Acessando ERP para extrair dados fiscais (ICMS-ST/FCP) e gerando guia oficial no Portal GNRE..."
+            )
+            try:
+                from gnre_emissao.gnre_pipeline import executar_pipeline
+                sucesso = await asyncio.to_thread(executar_pipeline, pedido_especifico=pedido_gnre)
+                if sucesso:
+                    embed_gnre = discord.Embed(
+                        title="✅ Processamento de GNRE Concluído!",
+                        description=f"A emissão da Guia GNRE" + (f" do pedido `{pedido_gnre}`" if pedido_gnre else " dos pedidos pendentes") + " foi executada com sucesso e registrada no histórico.",
+                        color=discord.Color.green()
+                    )
+                else:
+                    embed_gnre = discord.Embed(
+                        title="⚠️ Processamento de GNRE com Avisos",
+                        description="O pipeline de GNRE foi executado. Verifique os logs e a pasta de PDFs gerados.",
+                        color=discord.Color.gold()
+                    )
+                embed_gnre.set_footer(text="Automação Fiscal • Portal GNRE Nacional (gnre.pe.gov.br)")
+                await status_msg.edit(content=None, embed=embed_gnre)
+            except Exception as ex:
+                await status_msg.edit(content=f"❌ Erro ao emitir GNRE: `{ex}`")
+            return
+
+    # ── 5. PREVISÃO FINANCEIRA (FLUXO DE CAIXA) ─────────────────────────────
+    if any(k in conteudo for k in ["gerar previsão", "gerar previsao", "previsão financeira", "previsao financeira", "fluxo de caixa", "atualizar previsão", "atualizar previsao"]):
+        import re
+        m_dt = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", conteudo)
+        dt_base = m_dt.group(1) if m_dt else None
+
+        async with gerenciar_sessao_erp(message, "Previsão Financeira"):
+            status_msg = await message.reply(
+                "📈 **Robô de Previsão Financeira Iniciado!**\n"
+                "1. Extraindo relatórios oficiais 2004 (Receber) e 2015 (Pagar) do ERP ADMSIS...\n"
+                "2. Consolidando compensação bancária e feriados por filial (302, 429, 551, 601, Nevine)...\n"
+                "3. Duplicando aba do dia e preenchendo as 50 células no Google Sheets..."
+            )
+            try:
+                from automacao_previsao import executar_previsao
+                res_prev = await executar_previsao(data_base_str=dt_base)
+                if res_prev.get("sucesso"):
+                    embed_prev = discord.Embed(
+                        title="✅ Previsão Financeira Atualizada com Sucesso!",
+                        description=(
+                            f"A planilha oficial de fluxo de caixa foi sincronizada com o ERP ADMSIS.\n\n"
+                            f"• **Aba Gerada/Atualizada:** `{res_prev.get('aba')}`\n"
+                            f"• **Período de Extração:** `{res_prev.get('periodo')}`\n"
+                            f"• **Planilha:** [Acessar Google Sheets]({res_prev.get('planilha_url')})"
+                        ),
+                        color=discord.Color.green()
+                    )
+                    embed_prev.set_footer(text="Automação Financeira • ADMSIS ERP & Google Sheets")
+                    await status_msg.edit(content=None, embed=embed_prev)
+                else:
+                    embed_prev_fail = discord.Embed(
+                        title="❌ Falha na Previsão Financeira",
+                        description=res_prev.get("mensagem", "Erro desconhecido ao gerar previsão."),
+                        color=discord.Color.red()
+                    )
+                    await status_msg.edit(content=None, embed=embed_prev_fail)
+            except Exception as ex:
+                await status_msg.edit(content=f"❌ Erro ao executar previsão financeira: `{ex}`")
+            return
+
+    # ── 6. FECHAMENTO FISCAL XML (RELATÓRIO 2001 + XMLs) ───────────────────
+    if any(k in conteudo for k in ["fechamento fiscal", "fechamento xml", "fechamento mensal", "xmls do mês", "xmls do mes", "fechar mês", "fechar mes"]):
+        import re
+        m_mes = re.search(r"\b(?:mes|mês)?\s*(\d{1,2})[/.-](\d{4})\b", conteudo)
+        mes_f, ano_f = (int(m_mes.group(1)), int(m_mes.group(2))) if m_mes else (None, None)
+        
+        async with gerenciar_sessao_erp(message, "Fechamento Fiscal XML"):
+            status_msg = await message.reply(
+                "📦 **Fechamento Fiscal Mensal Iniciado!**\n"
+                "Baixando pacotes ZIP de NF-e (0104040100) e Relatórios 2001 (0117020100) para todas as filiais (302, 429, 551, 601, Nevine)..."
+            )
+            try:
+                from automacao_fechamento import executar_fechamento_fiscal
+                res_fech = await executar_fechamento_fiscal(mes=mes_f, ano=ano_f)
+                if res_fech.get("sucesso"):
+                    fils = ", ".join(res_fech.get("filiais", []))
+                    embed_fech = discord.Embed(
+                        title="✅ Fechamento Fiscal Concluído!",
+                        description=(
+                            f"Todos os arquivos fiscais do período **{res_fech.get('periodo')}** foram exportados com sucesso do ERP ADMSIS.\n\n"
+                            f"• **Filiais Processadas:** `{fils}`\n"
+                            f"• **Pasta de Destino:** `{res_fech.get('pasta_destino')}`\n"
+                            f"• **Total de Arquivos Gerados:** `{len(res_fech.get('arquivos', []))} arquivos`"
+                        ),
+                        color=discord.Color.green()
+                    )
+                    embed_fech.set_footer(text="Automação Fiscal • ADMSIS ERP")
+                    await status_msg.edit(content=None, embed=embed_fech)
+                else:
+                    embed_fail = discord.Embed(
+                        title="❌ Falha no Fechamento Fiscal",
+                        description=res_fech.get("mensagem", "Erro desconhecido ao executar fechamento."),
+                        color=discord.Color.red()
+                    )
+                    await status_msg.edit(content=None, embed=embed_fail)
+            except Exception as ex:
+                await status_msg.edit(content=f"❌ Erro ao executar fechamento fiscal: `{ex}`")
+            return
+
+    # ── 7. PONTO ELETRÔNICO (REP HENRY) ────────────────────────────────────
+    if any(k in conteudo for k in ["espelho de ponto", "consolidado de ponto", "ponto eletronico", "ponto eletrônico", "relatorio de ponto", "relatório de ponto", "ver ponto"]):
+        status_msg = await message.reply("⏱️ **Processando Ponto Eletrônico Consolidado...**\nConsolidando marcações dos relógios 601 e Nevine e calculando jornada CLT...")
+        try:
+            from ponto_eletronico.gerar_consolidado import gerar_espelho_ponto_consolidado
+            caminho_html = await asyncio.to_thread(gerar_espelho_ponto_consolidado)
+            if os.path.exists(caminho_html):
+                embed_ponto = discord.Embed(
+                    title="⏱️ Espelho de Ponto Consolidado (601 + Nevine)",
+                    description="O relatório consolidado de ponto foi gerado com sucesso.\nSegue o arquivo interativo HTML em anexo para visualização no navegador.",
+                    color=discord.Color.blue()
+                )
+                embed_ponto.set_footer(text="Automação Ponto • Relógios REP Henry")
+                file_ponto = discord.File(caminho_html, filename="Espelho_Ponto_Consolidado.html")
+                await status_msg.delete()
+                await message.reply(embed=embed_ponto, file=file_ponto)
+            else:
+                await status_msg.edit(content="❌ Não foi possível gerar o espelho de ponto consolidado.")
+        except Exception as ex:
+            await status_msg.edit(content=f"❌ Erro ao gerar ponto eletrônico: `{ex}`")
+        return
+
+    # ── 8. MÉTRICAS CONSOLIDADAS ───────────────────────────────────────────
+    if any(k in conteudo for k in ["metricas", "métricas", "dashboard", "estatisticas", "estatísticas"]) and not any(k in conteudo for k in ["ajuda", "menu"]):
+        try:
+            import database as db_nfe
+            m_nfe = db_nfe.obter_metricas()
+            import importlib.util
+            gnre_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "gnre_emissao", "database.py")
+            if not os.path.exists(gnre_db_path):
+                gnre_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnre_emissao", "database.py")
+            m_gnre = {}
+            if os.path.exists(gnre_db_path):
+                spec = importlib.util.spec_from_file_location("db_gnre", gnre_db_path)
+                db_gnre = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(db_gnre)
+                if hasattr(db_gnre, "obter_metricas_gnre"):
+                    m_gnre = db_gnre.obter_metricas_gnre()
+
+            embed_m = discord.Embed(
+                title="📊 Dashboard Geral de Automações - Super SofIA",
+                description="Métricas consolidadas de operação em produção:",
+                color=discord.Color.teal()
+            )
+            embed_m.add_field(
+                name="🏭 Emissão de NF-e",
+                value=(
+                    f"• **Hoje ({m_nfe['hoje']['data']}):** {m_nfe['hoje']['total']} total | {m_nfe['hoje']['sucesso']} autorizadas\n"
+                    f"• **Ontem ({m_nfe['ontem']['data']}):** {m_nfe['ontem']['total']} total | {m_nfe['ontem']['sucesso']} autorizadas\n"
+                    f"• **Mês Atual ({m_nfe['este_mes']['mes']}):** {m_nfe['este_mes']['total']} total | {m_nfe['este_mes']['sucesso']} autorizadas"
+                ),
+                inline=False
+            )
+            embed_m.add_field(
+                name="📄 Boletos Faturamento",
+                value=(
+                    f"• **Hoje:** {m_nfe['hoje']['boletos']} boletos gerados\n"
+                    f"• **Ontem:** {m_nfe['ontem']['boletos']} boletos gerados\n"
+                    f"• **Mês Atual:** {m_nfe['este_mes']['boletos']} boletos gerados"
+                ),
+                inline=False
+            )
+            if m_gnre:
+                embed_m.add_field(
+                    name="🏛️ Emissão de Guias GNRE",
+                    value=(
+                        f"• **Hoje:** {m_gnre.get('hoje', {}).get('sucesso', 0)} guias geradas\n"
+                        f"• **Mês Atual:** {m_gnre.get('este_mes', {}).get('sucesso', 0)} guias geradas\n"
+                        f"• **Taxa de Sucesso:** {m_gnre.get('geral', {}).get('taxa_sucesso', '100%')}"
+                    ),
+                    inline=False
+                )
+            embed_m.add_field(
+                name="🌐 Servidor HTTP de Métricas",
+                value="`http://localhost:8080/metricas` • Ativo e atualizando em tempo real",
+                inline=False
+            )
+            embed_m.set_footer(text="Super SofIA • Automações Integradas")
+            await message.reply(embed=embed_m)
+            return
+        except Exception as ex:
+            await message.reply(f"❌ Erro ao consultar métricas: `{ex}`")
+            return
+
     # Mostra o menu de ajuda/comandos SOMENTE se o usuário solicitar explicitamente (ou marcar apenas @SofIA)
     texto_limpo = conteudo.replace(f"<@{bot.user.id}>", "").replace(f"<@!{bot.user.id}>", "").replace("sofia", "").strip()
     pediu_ajuda = any(k in conteudo for k in ["ajuda", "help", "menu", "comandos", "manual", "o que você faz", "o que voce faz"]) or texto_limpo in ["", "?", "oi", "olá", "ola"]
 
     if pediu_ajuda:
         embed_aviso = discord.Embed(
-            title="🤖 Olá! Sou a SofIA, sua assistente do Contas a Pagar e Receber.",
-            description=(
-                "Como posso ajudar?\n\n"
-                "• **Para Boletos / GNRE / Holerite:** envie `@SofIA lance este pagamento` e **anexe o PDF**.\n"
-                "• **Para Vale Refeição (VR):** basta pedir `@SofIA faça o VR de outubro` (lido da planilha de VR).\n"
-                "• **Para Adiantamento Salarial:** basta pedir `@SofIA lance adiantamento filial 601` ou anexe o PDF.\n"
-                "• **Para Folha de Pagamento:** envie `@SofIA lance pagamento filial 601` e **anexe o PDF** com o resumo de líquido.\n"
-                "• **Para Contas a Pagar do Dia:** basta pedir `@SofIA contas a pagar de hoje` ou `@SofIA contas a pagar 03/07/2026` para receber o PDF oficial.\n"
-                "• **Para Contas a Receber do Dia:** basta pedir `@SofIA contas a receber de hoje` ou `@SofIA recebimentos do dia` para receber o PDF oficial.\n"
-                "• **Para Pagamento Avulso (PIX):** envie `@SofIA lance pagamento avulso para NOME, valor 760, filial 429, ref MANUTENÇÃO, vencimento hoje`.\n"
-                "• **Para Alteração de Título:** envie `@SofIA altere o plano de contas do favorecido EDUARDO LAURINDO para 41038` ou `altere a data de vencimento do favorecido NOME para 01/10/2026`.\n"
-                "• **Para Alteração em Lote:** envie `@SofIA altere a data de vencimento de TODOS os favorecidos de HOJE para 01/10/2026`.\n"
-                "• **Para Histórico de Lotes:** basta pedir `@SofIA historico` para ver os últimos lançamentos em lote.\n"
-                "• **Para Prêmio / Incentivo de Vendas:** basta pedir `@SofIA calcule o prêmio de setembro` ou `@SofIA apurar incentivo` para receber o ranking e o PDF oficial."
-            ),
+            title="🤖 Central Super SofIA - Central Unificada de Automações ERP & Financeiro",
+            description="Olá! Sou a **SofIA**, central unificada de automações financeiras, fiscais e operacionais. Veja todas as minhas capacidades organizadas por setor:",
             color=discord.Color.blue()
         )
+        embed_aviso.add_field(
+            name="1️⃣ Contas a Pagar & Tesouraria",
+            value=(
+                "• **Boletos / GNRE / Holerite:** `@SofIA lance este pagamento` *(anexando o PDF)*\n"
+                "• **Vale Refeição (VR):** `@SofIA faça o VR de outubro`\n"
+                "• **Adiantamento Salarial:** `@SofIA lance adiantamento filial 601`\n"
+                "• **Folha de Pagamento:** `@SofIA lance pagamento filial 601` *(anexando o PDF de resumo)*\n"
+                "• **Pagamento Avulso (PIX):** `@SofIA lance pagamento avulso para NOME, valor 760, filial 429, ref SERVIÇO, vencimento hoje`\n"
+                "• **Alteração de Título Individual:** `@SofIA altere a data de vencimento do favorecido NOME para 01/10/2026`\n"
+                "• **Alteração em Lote:** `@SofIA altere a data de vencimento de TODOS os favorecidos de HOJE para 01/10/2026`\n"
+                "• **Relatórios Oficiais Diários:** `@SofIA contas a pagar de hoje` ou `@SofIA contas a receber de hoje` *(PDF oficial do ERP)*"
+            ),
+            inline=False
+        )
+        embed_aviso.add_field(
+            name="2️⃣ Faturamento & Emissão de NF-e",
+            value=(
+                "• **Faturar Pedido:** `@SofIA faturar pedido 1585` ou `@SofIA crie a NF 1585` *(autoriza NF-e e gera boleto)*\n"
+                "• **Consultar DANFE / XML:** `@SofIA danfe 1585` ou `@SofIA ver nf 1585` *(retorna PDF e XML)*\n"
+                "• **Ordem de Produção (OP):** `@SofIA avançar op 1585` *(conclui componente na tela 0102080100)*"
+            ),
+            inline=False
+        )
+        embed_aviso.add_field(
+            name="3️⃣ Fiscal & Tributário",
+            value=(
+                "• **Emissão de Guia GNRE:** `@SofIA crie a GNRE do pedido 1760` ou `@SofIA verificar gnre` *(Sefaz Nacional)*\n"
+                "• **Fechamento Fiscal Mensal:** `@SofIA fechamento fiscal 09/2026` *(baixa pacotes ZIP de NF-e e Relatório 2001 das 5 filiais)*"
+            ),
+            inline=False
+        )
+        embed_aviso.add_field(
+            name="4️⃣ Controladoria, RH & Comercial",
+            value=(
+                "• **Previsão Financeira / Fluxo de Caixa:** `@SofIA gerar previsão` *(sincroniza relatórios 2004/2015 e preenche o Google Sheets)*\n"
+                "• **Espelho de Ponto (REP Henry):** `@SofIA espelho de ponto` *(gera HTML consolidado de jornadas, horas extras e atrasos)*\n"
+                "• **Prêmio / Incentivo de Vendas:** `@SofIA calcule o prêmio de setembro` *(ranking comercial e apuração Nevine)*"
+            ),
+            inline=False
+        )
+        embed_aviso.add_field(
+            name="5️⃣ Gestão & Auditoria",
+            value=(
+                "• **Histórico de Lotes:** `@SofIA historico` *(auditoria dos últimos lotes processados)*\n"
+                "• **Dashboard de Métricas:** `@SofIA metricas` *(resumo operacional + servidor HTTP porta 8080)*"
+            ),
+            inline=False
+        )
+        embed_aviso.set_footer(text="Super SofIA • Unificação Integral dos Projetos em Produção")
         await message.reply(embed=embed_aviso)
         return
 
