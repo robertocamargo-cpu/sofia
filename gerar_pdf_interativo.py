@@ -1,6 +1,7 @@
 """
-Script para geração de PDF Interativo e Estilizado do Portfólio de Jobs da SofIA.
-Utiliza Playwright / Chromium headless para renderizar HTML/CSS moderno em PDF A4 com links clicáveis.
+Script para geração de PDF Interativo e Estilizado do Portfólio de Jobs da Super SofIA.
+Cada Job possui estritamente UM comando oficial no Discord, conforme solicitado.
+Renderiza HTML/CSS moderno via Playwright em PDF A4 com links internos navegáveis.
 """
 
 import os
@@ -13,7 +14,7 @@ HTML_CONTENT = """<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Manual Interativo de Automações - SofIA ERP ADMSIS</title>
+  <title>Manual Interativo de Automações - Super SofIA</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
@@ -45,12 +46,12 @@ HTML_CONTENT = """<!DOCTYPE html>
       color: var(--text);
       background-color: var(--bg);
       line-height: 1.5;
-      font-size: 13px;
+      font-size: 12.5px;
     }
 
     .page {
-      padding: 30px;
-      max-width: 1000px;
+      padding: 24px;
+      max-width: 960px;
       margin: 0 auto;
       background: white;
     }
@@ -59,11 +60,10 @@ HTML_CONTENT = """<!DOCTYPE html>
     .header {
       background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
       color: white;
-      padding: 35px 30px;
-      border-radius: 16px;
-      margin-bottom: 25px;
-      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.2);
-      position: relative;
+      padding: 28px 24px;
+      border-radius: 14px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.2);
     }
 
     .header-badge {
@@ -72,33 +72,33 @@ HTML_CONTENT = """<!DOCTYPE html>
       backdrop-filter: blur(8px);
       padding: 4px 12px;
       border-radius: 9999px;
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .header h1 {
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 800;
       letter-spacing: -0.5px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .header p {
       color: #cbd5e1;
-      font-size: 14px;
-      max-width: 650px;
+      font-size: 13px;
+      max-width: 750px;
     }
 
     .rule-callout {
       background: #fef3c7;
       border-left: 4px solid var(--warning);
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-bottom: 25px;
-      font-size: 12px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 11.5px;
       color: #92400e;
       display: flex;
       align-items: center;
@@ -110,15 +110,15 @@ HTML_CONTENT = """<!DOCTYPE html>
       background: var(--primary-light);
       border: 1px solid #bfdbfe;
       border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 30px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
     }
 
     .toc-title {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
       color: var(--primary-dark);
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -127,7 +127,7 @@ HTML_CONTENT = """<!DOCTYPE html>
     .toc-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 8px 16px;
+      gap: 6px 12px;
     }
 
     .toc-link {
@@ -137,8 +137,8 @@ HTML_CONTENT = """<!DOCTYPE html>
       text-decoration: none;
       color: #1e40af;
       font-weight: 500;
-      font-size: 12px;
-      padding: 6px 10px;
+      font-size: 11.5px;
+      padding: 5px 8px;
       border-radius: 6px;
       background: rgba(255, 255, 255, 0.7);
       border: 1px solid #dbeafe;
@@ -148,10 +148,10 @@ HTML_CONTENT = """<!DOCTYPE html>
     .toc-num {
       background: var(--primary);
       color: white;
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 700;
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -161,22 +161,22 @@ HTML_CONTENT = """<!DOCTYPE html>
 
     /* JOB CARDS */
     .job-section {
-      margin-bottom: 25px;
+      margin-bottom: 16px;
       page-break-inside: avoid;
     }
 
     .job-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 10px;
       overflow: hidden;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
     }
 
     .job-header {
       background: #f1f5f9;
       border-bottom: 1px solid var(--border);
-      padding: 12px 18px;
+      padding: 10px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -185,15 +185,15 @@ HTML_CONTENT = """<!DOCTYPE html>
     .job-title-group {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
     .job-icon {
-      font-size: 20px;
+      font-size: 18px;
     }
 
     .job-title {
-      font-size: 15px;
+      font-size: 13.5px;
       font-weight: 700;
       color: var(--dark);
     }
@@ -204,9 +204,9 @@ HTML_CONTENT = """<!DOCTYPE html>
     }
 
     .badge {
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 600;
-      padding: 3px 8px;
+      padding: 2px 7px;
       border-radius: 9999px;
       text-transform: uppercase;
       letter-spacing: 0.3px;
@@ -222,79 +222,47 @@ HTML_CONTENT = """<!DOCTYPE html>
       color: #166534;
     }
 
-    .badge-req {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
     .job-body {
-      padding: 16px 18px;
+      padding: 12px 14px;
     }
 
     .job-desc {
-      font-size: 12.5px;
+      font-size: 12px;
       color: var(--text);
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
-    .rules-list {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 10px 14px;
-      margin-bottom: 14px;
-      font-size: 11.5px;
-    }
-
-    .rules-list strong {
-      color: #1e293b;
-    }
-
-    .rules-list ul {
-      margin-left: 18px;
-      margin-top: 4px;
-    }
-
-    .rules-list li {
-      margin-bottom: 3px;
-    }
-
-    /* COMMAND BOX */
+    /* COMMAND BOX (EXATAMENTE UM COMANDO) */
     .command-box {
       background: var(--code-bg);
-      border-radius: 8px;
-      padding: 10px 14px;
+      border-radius: 6px;
+      padding: 8px 12px;
       display: flex;
-      flex-direction: column;
-      gap: 4px;
+      align-items: center;
+      gap: 10px;
     }
 
     .command-label {
-      font-size: 10px;
-      font-weight: 600;
+      font-size: 9.5px;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: #94a3b8;
+      white-space: nowrap;
     }
 
     .command-code {
       font-family: 'JetBrains Mono', monospace;
       color: #38bdf8;
       font-size: 11.5px;
+      font-weight: 600;
       word-break: break-all;
-    }
-
-    .command-note {
-      font-size: 10.5px;
-      color: #64748b;
-      margin-top: 2px;
-      font-style: italic;
     }
 
     .back-to-top {
       display: inline-block;
-      margin-top: 10px;
-      font-size: 11px;
+      margin-top: 8px;
+      font-size: 10.5px;
       color: var(--primary);
       text-decoration: none;
       font-weight: 600;
@@ -302,10 +270,10 @@ HTML_CONTENT = """<!DOCTYPE html>
 
     .footer {
       text-align: center;
-      font-size: 11px;
+      font-size: 10.5px;
       color: var(--text-muted);
-      margin-top: 30px;
-      padding-top: 15px;
+      margin-top: 25px;
+      padding-top: 12px;
       border-top: 1px solid var(--border);
     }
   </style>
@@ -315,16 +283,16 @@ HTML_CONTENT = """<!DOCTYPE html>
     
     <!-- HEADER -->
     <div class="header" id="topo">
-      <div class="header-badge">Automação Financeira • ADMSIS ERP</div>
-      <h1>Manual Interativo de Jobs & Comandos da SofIA</h1>
-      <p>Guia operacional completo de automações de Contas a Pagar e Receber via Discord e terminal, com regras de negócio, parametrizações contábeis e comandos.</p>
+      <div class="header-badge">Super SofIA • Automação Unificada ERP ADMSIS</div>
+      <h1>Manual de Jobs & Comandos Oficiais da SofIA</h1>
+      <p>Catálogo operacional completo da Super SofIA. Para cada job cadastrado na plataforma, é exibido estritamente o seu comando oficial único de acionamento no Discord.</p>
     </div>
 
     <!-- REGRA GERAL -->
     <div class="rule-callout">
-      <span style="font-size: 18px;">💡</span>
+      <span style="font-size: 16px;">💡</span>
       <div>
-        <strong>Regra de Acionamento da SofIA:</strong> A assistente opera em silêncio no canal e <u>só responde quando for chamada diretamente</u> por menção (<code>@SofIA</code>), pelo nome (<code>sofia ...</code>), mensagem direta (DM) ou reply a uma mensagem dela.
+        <strong>Regra de Acionamento:</strong> A SofIA responde no canal quando mencionada (<code>@SofIA</code>), pelo nome (<code>sofia ...</code>), mensagem direta (DM) ou reply.
       </div>
     </div>
 
@@ -334,30 +302,31 @@ HTML_CONTENT = """<!DOCTYPE html>
         <span>📑</span> Índice Rápido de Jobs (Clique para navegar)
       </div>
       <div class="toc-grid">
-        <a class="toc-link" href="#job-1"><span class="toc-num">1</span> 01. Lançamento de Boletos e Faturas (PDF)</a>
-        <a class="toc-link" href="#job-2"><span class="toc-num">2</span> 02. Lançamento de Guias GNRE (ERP)</a>
+        <a class="toc-link" href="#job-1"><span class="toc-num">1</span> 01. Boletos e Faturas (PDF)</a>
+        <a class="toc-link" href="#job-2"><span class="toc-num">2</span> 02. Lançamento de Guias GNRE</a>
         <a class="toc-link" href="#job-3"><span class="toc-num">3</span> 03. Vale Refeição em Lote (VR)</a>
         <a class="toc-link" href="#job-4"><span class="toc-num">4</span> 04. Adiantamento Salarial em Lote</a>
-        <a class="toc-link" href="#job-5"><span class="toc-num">5</span> 05. Folha de Pagamento (Resumo Líquido)</a>
+        <a class="toc-link" href="#job-5"><span class="toc-num">5</span> 05. Folha de Pagamento (Salários)</a>
         <a class="toc-link" href="#job-6"><span class="toc-num">6</span> 06. Pagamento Avulso (PIX / TED)</a>
         <a class="toc-link" href="#job-7"><span class="toc-num">7</span> 07. Alteração de Título Individual</a>
         <a class="toc-link" href="#job-8"><span class="toc-num">8</span> 08. Alteração de Vencimento em Lote</a>
-        <a class="toc-link" href="#job-9"><span class="toc-num">9</span> 09. Relatório Oficial Contas a Pagar (2015)</a>
-        <a class="toc-link" href="#job-10"><span class="toc-num">10</span> 10. Relatório Oficial Contas a Receber (2004)</a>
+        <a class="toc-link" href="#job-9"><span class="toc-num">9</span> 09. Relatório Contas a Pagar (2015)</a>
+        <a class="toc-link" href="#job-10"><span class="toc-num">10</span> 10. Relatório Contas a Receber (2004)</a>
         <a class="toc-link" href="#job-11"><span class="toc-num">11</span> 11. Consulta de Histórico de Lotes</a>
-        <a class="toc-link" href="#job-12"><span class="toc-num">12</span> 12. Incentivo / Prêmio de Vendas (Nevine)</a>
-        <a class="toc-link" href="#job-13"><span class="toc-num">13</span> 13. Faturamento & Emissão de NF-e (ERP)</a>
-        <a class="toc-link" href="#job-14"><span class="toc-num">14</span> 14. Consulta de DANFE / XML (ERP)</a>
-        <a class="toc-link" href="#job-15"><span class="toc-num">15</span> 15. Ordem de Produção - OP (ERP)</a>
-        <a class="toc-link" href="#job-16"><span class="toc-num">16</span> 16. Emissão de Guia GNRE (Portal Sefaz)</a>
-        <a class="toc-link" href="#job-17"><span class="toc-num">17</span> 17. Previsão Financeira & Fluxo de Caixa</a>
-        <a class="toc-link" href="#job-18"><span class="toc-num">18</span> 18. Fechamento Fiscal Mensal (XMLs + 2001)</a>
-        <a class="toc-link" href="#job-19"><span class="toc-num">19</span> 19. Espelho de Ponto Eletrônico (REP)</a>
-        <a class="toc-link" href="#job-20"><span class="toc-num">20</span> 20. Dashboard de Métricas & API (8080)</a>
+        <a class="toc-link" href="#job-12"><span class="toc-num">12</span> 12. Prêmio de Vendas (Nevine)</a>
+        <a class="toc-link" href="#job-13"><span class="toc-num">13</span> 13. Faturamento & Emissão de NF-e</a>
+        <a class="toc-link" href="#job-14"><span class="toc-num">14</span> 14. Consulta de DANFE / XML</a>
+        <a class="toc-link" href="#job-15"><span class="toc-num">15</span> 15. Ordem de Produção (OP)</a>
+        <a class="toc-link" href="#job-16"><span class="toc-num">16</span> 16. Emissão de Guia GNRE Sefaz</a>
+        <a class="toc-link" href="#job-17"><span class="toc-num">17</span> 17. Previsão Financeira / Caixa</a>
+        <a class="toc-link" href="#job-18"><span class="toc-num">18</span> 18. Fechamento Fiscal Mensal XML</a>
+        <a class="toc-link" href="#job-19"><span class="toc-num">19</span> 19. Espelho de Ponto REP Henry</a>
+        <a class="toc-link" href="#job-20"><span class="toc-num">20</span> 20. Dashboard de Métricas (8080)</a>
+        <a class="toc-link" href="#job-21"><span class="toc-num">21</span> 21. Cronograma de Tarefas (Cron)</a>
       </div>
     </div>
 
-    <!-- 1. BOLETOS -->
+    <!-- 01. BOLETOS -->
     <div class="job-section" id="job-1">
       <div class="job-card">
         <div class="job-header">
@@ -367,54 +336,45 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0103070100</span>
-            <span class="badge badge-auto">Auto-GED</span>
+            <span class="badge badge-auto">Auto-GED / D-1</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Lê linha digitável, favorecido, valor e data de vencimento. Localiza o fornecedor no ERP via lookup, clica em <i>Copiar Título</i>, anexa o PDF no GED e faz download da Autorização de Pagamento Oficial.</p>
-          <div class="rules-list">
-            <strong>⚙️ Regras de Negócio Aplicadas:</strong>
-            <ul>
-              <li><strong>Vencimento D-1:</strong> O vencimento gravado no ERP é sempre 1 dia antes da data do boleto (com antecipação automática para sexta se cair no fim de semana).</li>
-              <li><strong>Referência Inteligente:</strong> Herda a referência do título clonado e avança automaticamente o mês (ex: <i>Setembro/2026</i> &rarr; <i>Outubro/2026</i>).</li>
-            </ul>
-          </div>
+          <p class="job-desc">Lê linha digitável, favorecido, valor e vencimento do PDF. Clona o título no ERP aplicando D-1, anexa o documento no GED e faz download da Autorização de Pagamento.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord (Anexar PDF)</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA lance este pagamento</span>
-            <span class="command-note">Ou: "sofia lance o boleto" (anexando o PDF do boleto/fatura)</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 2. GNRE -->
+    <!-- 02. GNRE ERP -->
     <div class="job-section" id="job-2">
       <div class="job-card">
         <div class="job-header">
           <div class="job-title-group">
             <span class="job-icon">🏛️</span>
-            <span class="job-title">02. Lançamento de Guias GNRE (Tributos Estaduais)</span>
+            <span class="job-title">02. Lançamento de Guias GNRE no ERP</span>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0103070100</span>
-            <span class="badge badge-auto">Impostos</span>
+            <span class="badge badge-auto">Vencimento Original</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Processa guias GNRE em PDF, identifica o Estado (UF Favorecida), receita tributária, documento de origem (NF), valor e vencimento, clonando o histórico fiscal correspondente e anexando o comprovante.</p>
+          <p class="job-desc">Lança guias estaduais GNRE no Contas a Pagar do ADMSIS, respeitando estritamente o vencimento original impresso na guia (sem D-1) e anexando o comprovante.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord (Anexar Guia)</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA lance a GNRE</span>
-            <span class="command-note">Identifica automaticamente o Estado (ex: Sefaz Bahia, Pernambuco, etc.)</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 3. VR -->
+    <!-- 03. VR -->
     <div class="job-section" id="job-3">
       <div class="job-card">
         <div class="job-header">
@@ -428,18 +388,17 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Lê a aba do mês solicitado na <code>Planilha VR.xlsx</code>, calcula dias trabalhados descontando férias e faltas, e lança no ERP os títulos de cada colaborador rateados nas filiais 429, 601 e Nevine.</p>
+          <p class="job-desc">Lê a planilha oficial de VR da competência informada, desconta férias e faltas, e lança no ERP os títulos de todos os colaboradores rateados nas filiais 429, 601 e Nevine.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA faça o VR de outubro</span>
-            <span class="command-note">Ou: "sofia lance o vale refeição de setembro" (sem necessidade de anexo)</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 4. ADIANTAMENTO -->
+    <!-- 04. ADIANTAMENTO -->
     <div class="job-section" id="job-4">
       <div class="job-card">
         <div class="job-header">
@@ -453,81 +412,65 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Processa a relação de adiantamentos quinzenais por filial, localiza os colaboradores na tela de funcionários do ERP e lança os valores líquidos com plano de contas de adiantamento.</p>
+          <p class="job-desc">Lê a relação de adiantamentos quinzenais em PDF, localiza colaboradores no cadastro do ERP e lança os títulos individuais com plano de contas de Adiantamento Salarial.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA lance adiantamento filial 601</span>
-            <span class="command-note">Também aceita filial 429 ou Nevine</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 5. FOLHA DE PAGAMENTO -->
+    <!-- 05. FOLHA DE PAGAMENTO -->
     <div class="job-section" id="job-5">
       <div class="job-card">
         <div class="job-header">
           <div class="job-title-group">
-            <span class="job-icon">👥</span>
-            <span class="job-title">05. Folha de Pagamento / Salários (Mensal)</span>
+            <span class="job-icon">💼</span>
+            <span class="job-title">05. Folha de Pagamento (Salários)</span>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0103070100</span>
-            <span class="badge badge-req">PDF Obrigatório</span>
+            <span class="badge badge-auto">Resumo Líquido</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Lança o salário líquido mensal de todos os colaboradores da filial selecionada a partir do relatório em PDF da <strong>Relação Geral dos Líquidos</strong>.</p>
-          <div class="rules-list">
-            <strong>⚠️ Regra de Envio Obrigatória:</strong>
-            <ul>
-              <li><strong>Anexo Mandatório:</strong> É <u>obrigatório anexar o arquivo PDF com o Resumo de Líquido</u> junto ao comando. Sem o anexo, a SofIA não executa e orienta o envio do arquivo.</li>
-            </ul>
-          </div>
+          <p class="job-desc">Processa o PDF oficial de Resumo de Líquido da Folha de Pagamento e grava os salários líquidos mensais de todos os colaboradores no ERP ADMSIS.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord (Obrigatoriamente Anexando PDF)</span>
-            <span class="command-code">@SofIA lance folha de pagamento filial 601</span>
-            <span class="command-note">Ou: "sofia lance pagamento filial nevine" (anexando o PDF com a relação dos líquidos)</span>
+            <span class="command-label">Comando:</span>
+            <span class="command-code">@SofIA lance pagamento filial 601</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 6. AVULSO -->
+    <!-- 06. AVULSO -->
     <div class="job-section" id="job-6">
       <div class="job-card">
         <div class="job-header">
           <div class="job-title-group">
             <span class="job-icon">💸</span>
-            <span class="job-title">06. Pagamento Avulso (PIX / TED sem Boleto)</span>
+            <span class="job-title">06. Pagamento Avulso (PIX / TED)</span>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0103070100</span>
-            <span class="badge badge-auto">Clonagem Inteligente</span>
+            <span class="badge badge-auto">Sem Boleto</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Lança despesas avulsas clonando o último título pendente do favorecido no ERP (herdando plano de contas, rateio e impostos), atualizando valor, filial e data de pagamento.</p>
-          <div class="rules-list">
-            <strong>⚙️ Regras de Referência e Validação:</strong>
-            <ul>
-              <li><strong>Referência Opcional:</strong> Se não for informada no comando, a SofIA herda a referência do título anterior e avança o mês automaticamente.</li>
-              <li><strong>Campos Obrigatórios:</strong> Favorecido, Valor e Vencimento (se faltar algum, ela pausa e solicita no chat).</li>
-            </ul>
-          </div>
+          <p class="job-desc">Lança pagamentos pontuais sem código de barras (PIX, TED, prestadores de serviço), clonando o histórico do favorecido e atualizando valor, vencimento e descrição.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
-            <span class="command-code">@SofIA lance o pagamento avulso para EDUARDO LAURINDO, valor 760, filial 429, vencimento hoje</span>
-            <span class="command-note">Com referência personalizada: "... ref MANUTENÇÃO PREDIAL, vencimento 05/10/2026"</span>
+            <span class="command-label">Comando:</span>
+            <span class="command-code">@SofIA lance pagamento avulso para EDUARDO LAURINDO, valor 760, filial 429, ref MANUTENÇÃO, vencimento hoje</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 7. ALTERACAO INDIVIDUAL -->
+    <!-- 07. ALTERAÇÃO INDIVIDUAL -->
     <div class="job-section" id="job-7">
       <div class="job-card">
         <div class="job-header">
@@ -537,48 +480,45 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0103070100</span>
-            <span class="badge badge-auto">NLP</span>
+            <span class="badge badge-auto">Prorrogação / Plano</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Altera dados específicos do último título pendente de um fornecedor diretamente no formulário do ERP ADMSIS interpretando comandos em linguagem natural.</p>
+          <p class="job-desc">Localiza o último título pendente do fornecedor no ADMSIS e altera dinamicamente data de vencimento, plano de contas, valor, filial ou observação.</p>
           <div class="command-box">
-            <span class="command-label">Exemplos de Comandos no Discord</span>
-            <span class="command-code">@SofIA altere o plano de contas do favorecido Eduardo Laurindo para 41038</span>
-            <span class="command-code" style="margin-top: 4px;">@SofIA altere a data de vencimento do favorecido Eduardo Laurindo para 01/10/2026</span>
-            <span class="command-note">Suporta também alteração de Filial, Referência, Observação e Valor</span>
+            <span class="command-label">Comando:</span>
+            <span class="command-code">@SofIA altere a data de vencimento do favorecido EDUARDO LAURINDO para 15/10/2026</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 8. ALTERACAO EM LOTE -->
+    <!-- 08. ALTERAÇÃO EM LOTE -->
     <div class="job-section" id="job-8">
       <div class="job-card">
         <div class="job-header">
           <div class="job-title-group">
             <span class="job-icon">🔄</span>
-            <span class="job-title">08. Alteração de Vencimento em Lote (Prorrogação)</span>
+            <span class="job-title">08. Alteração de Vencimento em Lote</span>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0103070100</span>
-            <span class="badge badge-auto">Lote Geral</span>
+            <span class="badge badge-auto">Massa / Lote</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Localiza <strong>todos os títulos pendentes</strong> com vencimento na data de origem especificada e altera em massa o vencimento de cada um para a nova data informada.</p>
+          <p class="job-desc">Filtra todos os títulos pendentes de uma data de origem e prorroga o vencimento de todos simultaneamente para a nova data informada.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
-            <span class="command-code">@SofIA altere a data de vencimento de TODOS os favorecidos de HOJE para 01/10/2026</span>
-            <span class="command-note">Ou: "sofia prorrogar todos os titulos de 30/09/2026 para 05/10/2026"</span>
+            <span class="command-label">Comando:</span>
+            <span class="command-code">@SofIA altere a data de vencimento de TODOS os favorecidos de HOJE para 15/10/2026</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 9. RELATORIO 2015 -->
+    <!-- 09. RELATÓRIO 2015 -->
     <div class="job-section" id="job-9">
       <div class="job-card">
         <div class="job-header">
@@ -588,22 +528,21 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0117030100</span>
-            <span class="badge badge-auto">Emissão Oficial</span>
+            <span class="badge badge-auto">PDF Oficial</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Emite o Relatório Oficial 2015 no módulo de relatórios do ERP, intercepta e faz o download do PDF gerado pelo sistema e envia no chat junto a um resumo de despesas por filial.</p>
+          <p class="job-desc">Emite o Relatório Oficial 2015 no ERP ADMSIS para a data especificada, calcula o somatório por filial e envia o PDF oficial gerado como anexo no chat.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA contas a pagar de hoje</span>
-            <span class="command-note">Ou: "sofia o que tem para pagar hoje?", "@SofIA contas a pagar 03/07/2026 filial 601"</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 10. RELATORIO 2004 -->
+    <!-- 10. RELATÓRIO 2004 -->
     <div class="job-section" id="job-10">
       <div class="job-card">
         <div class="job-header">
@@ -613,22 +552,21 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0117030100</span>
-            <span class="badge badge-auto">Emissão Oficial</span>
+            <span class="badge badge-auto">PDF Oficial</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Emite o Relatório Oficial 2004 de títulos a receber em aberto, faz download do PDF gerado pelo ADMSIS e envia no Discord destacando montante total e principais devedores.</p>
+          <p class="job-desc">Emite o Relatório Oficial 2004 de títulos a receber em aberto no ERP ADMSIS, destacando os principais devedores e enviando o PDF completo no Discord.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA contas a receber de hoje</span>
-            <span class="command-note">Ou: "sofia recebimentos do dia", "@SofIA titulos a receber de amanha"</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 11. HISTORICO -->
+    <!-- 11. HISTÓRICO -->
     <div class="job-section" id="job-11">
       <div class="job-card">
         <div class="job-header">
@@ -637,48 +575,39 @@ HTML_CONTENT = """<!DOCTYPE html>
             <span class="job-title">11. Consulta de Histórico de Lotes Executados</span>
           </div>
           <div class="job-badges">
+            <span class="badge badge-tela">Base Local JSON</span>
             <span class="badge badge-auto">Auditoria</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Consulta o arquivo estruturado <code>data/batch_history.json</code> e retorna no chat uma tabela formatada dos últimos lotes processados, títulos lançados, valores e falhas.</p>
+          <p class="job-desc">Exibe a tabela dos últimos lotes processados pela SofIA (VR, Salários, Adiantamentos), indicando data, competência, filial, colaboradores e valor total lançado.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA historico</span>
-            <span class="command-note">Ou: "sofia histórico de lotes"</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 12. PREMIO DE VENDAS -->
+    <!-- 12. PRÊMIO DE VENDAS -->
     <div class="job-section" id="job-12">
       <div class="job-card">
         <div class="job-header">
           <div class="job-title-group">
             <span class="job-icon">🏆</span>
-            <span class="job-title">12. Apuração de Incentivo / Prêmio de Vendas (Nevine)</span>
+            <span class="job-title">12. Incentivo / Prêmio de Vendas (Nevine)</span>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Google Sheets</span>
-            <span class="badge badge-auto">Relatório PDF</span>
+            <span class="badge badge-auto">Ranking Comercial</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Conecta à base oficial de vendas no Google Sheets, filtra pedidos elegíveis excluindo status reprovados/cancelados e calcula a premiação comercial consolidando regras F1 (Cliente Novo) e F2 (Espaço Nevine), gerando ranking e relatório em PDF.</p>
-          <div class="rules-list">
-            <strong>⚙️ Critérios de Bonificação Aplicados:</strong>
-            <ul>
-              <li><strong>F1 (Cliente Novo):</strong> <code>ind_cliente_novo == "CLIENTE NOVO"</code> e <code>ope_descricao == "* VENDA"</code>.</li>
-              <li><strong>F2 (Espaço Nevine):</strong> Cliente recorrente e <code>ope_descricao</code> contendo <code>"ESPAÇO NEVINE"</code>.</li>
-              <li><strong>Desconsidera:</strong> Status <code>APROVACAO</code>, <code>ANALISE DE CREDITO</code>, <code>VENDEDOR</code>, <code>FATURAMENTO DENEGADO</code> e <code>CANCELADO</code>.</li>
-            </ul>
-          </div>
+          <p class="job-desc">Conecta à base de vendas, consolida os bônus comerciais por vendedor aplicando regras F1 (Cliente Novo) e F2 (Espaço Nevine), e gera o ranking em PDF.</p>
           <div class="command-box">
-            <span class="command-label">Comandos no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA calcule o prêmio de setembro</span>
-            <span class="command-note">Ou: "@SofIA apurar incentivo", "@SofIA prêmio deste mês", "@SofIA comissão de agosto"</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
@@ -691,7 +620,7 @@ HTML_CONTENT = """<!DOCTYPE html>
         <div class="job-header">
           <div class="job-title-group">
             <span class="job-icon">🏭</span>
-            <span class="job-title">13. Faturamento & Emissão Automática de NF-e</span>
+            <span class="job-title">13. Faturamento & Emissão de NF-e</span>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0103030100</span>
@@ -699,11 +628,10 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Localiza o pedido na grade de faturamento do ERP ADMSIS, clica em Gerar NF-e, confirma autorização perante a Sefaz e, caso a forma de pagamento seja Boleto, emite automaticamente os boletos de cobrança.</p>
+          <p class="job-desc">Localiza o pedido na grade de faturamento do ADMSIS, dispara a autorização da NF-e e, caso a forma de pagamento seja boleto, gera os boletos bancários automaticamente.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA faturar pedido 1585</span>
-            <span class="command-note">Ou: "@SofIA crie a NF 1585"</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
@@ -724,18 +652,17 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Consulta o status da nota fiscal no ADMSIS pelo número do pedido, clica em DANFE e Baixar XML, capturando os arquivos e anexando-os diretamente na conversa do Discord.</p>
+          <p class="job-desc">Acessa a tela de consulta de notas pelo número do pedido, extrai o DANFE em PDF e o arquivo XML original, enviando ambos diretamente no chat.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA danfe 1585</span>
-            <span class="command-note">Ou: "@SofIA ver nf 1585", "@SofIA xml 1585"</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 15. ORDEM DE PRODUÇÃO -->
+    <!-- 15. OP -->
     <div class="job-section" id="job-15">
       <div class="job-card">
         <div class="job-header">
@@ -749,18 +676,17 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Filtra a OP pelo número do pedido, seleciona os componentes no grid/iframe e dispara a conclusão formal da ordem no ERP ADMSIS.</p>
+          <p class="job-desc">Filtra a Ordem de Produção pelo número do pedido, seleciona os componentes no grid interno e confirma a conclusão formal do lote de fabricação no ERP.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA avançar op 1585</span>
-            <span class="command-note">Ou: "@SofIA ordem de produção 1585", "@SofIA op 1585"</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 16. EMISSÃO GNRE SEFAZ -->
+    <!-- 16. GNRE SEFAZ -->
     <div class="job-section" id="job-16">
       <div class="job-card">
         <div class="job-header">
@@ -774,11 +700,10 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Varre a planilha de pedidos interestaduais, extrai dados de tributação do ERP (ICMS-ST, FCP, Inscrição Estadual, Chave DFe), acessa o portal nacional da GNRE via Camoufox, preenche e baixa o PDF oficial da guia.</p>
+          <p class="job-desc">Extrai impostos interestaduais no ERP (ICMS-ST, FCP, IE, Chave DFe), acessa o Portal Nacional da GNRE via Camoufox, preenche os formulários e baixa o PDF oficial.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA crie a GNRE do pedido 1760</span>
-            <span class="command-note">Ou: "@SofIA verificar gnre" (para varredura geral de pendências da planilha)</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
@@ -791,7 +716,7 @@ HTML_CONTENT = """<!DOCTYPE html>
         <div class="job-header">
           <div class="job-title-group">
             <span class="job-icon">📈</span>
-            <span class="job-title">17. Previsão Financeira & Fluxo de Caixa Diário</span>
+            <span class="job-title">17. Previsão Financeira & Fluxo de Caixa</span>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Telas 2004/2015</span>
@@ -799,11 +724,10 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Extrai os relatórios 2004 (Receber) e 2015 (Pagar) do ADMSIS, aplica regras de compensação bancária e feriados por filial (302, 429, 551, 601, Nevine), duplica a aba no Google Sheets e preenche as 50 células automaticamente.</p>
+          <p class="job-desc">Baixa relatórios 2004 e 2015 no ERP, aplica regras de compensação bancária e feriados por filial (302, 429, 551, 601, Nevine) e preenche as 50 células no Google Sheets.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA gerar previsão</span>
-            <span class="command-note">Ou: "@SofIA fluxo de caixa", "@SofIA atualizar previsão"</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
@@ -816,19 +740,18 @@ HTML_CONTENT = """<!DOCTYPE html>
         <div class="job-header">
           <div class="job-title-group">
             <span class="job-icon">📦</span>
-            <span class="job-title">18. Fechamento Fiscal Mensal (XMLs + Relatório 2001)</span>
+            <span class="job-title">18. Fechamento Fiscal Mensal de XMLs</span>
           </div>
           <div class="job-badges">
-            <span class="badge badge-tela">Telas 0104040100 / 0117020100</span>
-            <span class="badge badge-auto">Fechamento Fiscal</span>
+            <span class="badge badge-tela">0104040100 / 0117020100</span>
+            <span class="badge badge-auto">ZIPs + XLSX</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Gera e baixa os pacotes compactados de todos os XMLs de notas fiscais emitidas no mês e o Relatório 2001 (Faturamento por Filial) para as 5 filiais da empresa, organizando tudo em pastas por filial.</p>
+          <p class="job-desc">Baixa os pacotes ZIP com todos os XMLs de notas fiscais emitidas no mês e gera o Relatório 2001 em XLSX para todas as 5 filiais da empresa.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA fechamento fiscal 09/2026</span>
-            <span class="command-note">Ou: "@SofIA fechamento xml", "@SofIA xmls do mês"</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
@@ -841,7 +764,7 @@ HTML_CONTENT = """<!DOCTYPE html>
         <div class="job-header">
           <div class="job-title-group">
             <span class="job-icon">⏱️</span>
-            <span class="job-title">19. Espelho de Ponto Eletrônico Consolidado (REP Henry)</span>
+            <span class="job-title">19. Espelho de Ponto Eletrônico (REP Henry)</span>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">REP 601 + Nevine</span>
@@ -849,24 +772,23 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Consolida arquivos de marcação AFD dos relógios Henry das unidades 601 e Nevine, calcula carga horária CLT (tolerância de 10 minutos, horas extras, atrasos e faltas) e entrega o espelho em HTML interativo com filtros por colaborador.</p>
+          <p class="job-desc">Consolida os registros AFD dos relógios 601 e Nevine, calcula carga horária CLT (tolerância de 10 min, horas extras e atrasos) e gera o espelho interativo HTML.</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA espelho de ponto</span>
-            <span class="command-note">Ou: "@SofIA consolidado de ponto", "@SofIA ponto de hoje"</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
       </div>
     </div>
 
-    <!-- 20. MÉTRICAS CONSOLIDADAS -->
+    <!-- 20. MÉTRICAS -->
     <div class="job-section" id="job-20">
       <div class="job-card">
         <div class="job-header">
           <div class="job-title-group">
             <span class="job-icon">📊</span>
-            <span class="job-title">20. Dashboard de Métricas Operacionais & Servidor HTTP</span>
+            <span class="job-title">20. Dashboard de Métricas Operacionais</span>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Porta 8080</span>
@@ -874,11 +796,34 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Centraliza métricas de produção de NF-e, Boletos e Guias GNRE em tempo real, fornecendo endpoints JSON em <code>http://localhost:8080/metricas</code> e cards resumidos no chat do Discord.</p>
+          <p class="job-desc">Apresenta o painel de notas emitidas, boletos gerados e guias GNRE em produção, com servidor HTTP ativo na porta 8080 (<code>/metricas</code>).</p>
           <div class="command-box">
-            <span class="command-label">Comando no Discord</span>
+            <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA metricas</span>
-            <span class="command-note">Ou: "@SofIA dashboard", "@SofIA estatisticas"</span>
+          </div>
+          <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 21. CRONOGRAMA -->
+    <div class="job-section" id="job-21">
+      <div class="job-card">
+        <div class="job-header">
+          <div class="job-title-group">
+            <span class="job-icon">⏰</span>
+            <span class="job-title">21. Cronograma de Tarefas Automáticas (Cron)</span>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-tela">Loop Assíncrono</span>
+            <span class="badge badge-auto">Fila erp_lock</span>
+          </div>
+        </div>
+        <div class="job-body">
+          <p class="job-desc">Exibe o status do agendador interno em segundo plano, horários programados (NF-e de hora em hora, GNRE às 09h/11h/14h/16h e Previsão às 09h30) e horários da última rodada.</p>
+          <div class="command-box">
+            <span class="command-label">Comando:</span>
+            <span class="command-code">@SofIA agendamentos</span>
           </div>
           <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
         </div>
@@ -888,7 +833,7 @@ HTML_CONTENT = """<!DOCTYPE html>
     <!-- FOOTER -->
     <div class="footer">
       Super SofIA • Central Unificada de Automações ERP ADMSIS & Financeiro<br>
-      Documento atualizado em Outubro/2026 • Todos os direitos reservados.
+      Manual atualizado em Outubro/2026 • 21 Jobs com Comando Único Oficial.
     </div>
 
   </div>
@@ -897,15 +842,13 @@ HTML_CONTENT = """<!DOCTYPE html>
 """
 
 async def main():
-    print("Iniciando geração do PDF interativo...")
+    print("Iniciando geração do PDF interativo oficial com comando único por job...")
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
         
-        # Carrega o HTML com os links interativos
         await page.set_content(HTML_CONTENT, wait_until="networkidle")
         
-        # Gera o PDF A4 com formatação profissional e links navegáveis preservados
         await page.pdf(
             path=OUTPUT_PDF,
             format="A4",
@@ -919,7 +862,7 @@ async def main():
         )
         await browser.close()
         
-    print(f"PDF interativo gerado com sucesso em:\n{OUTPUT_PDF}")
+    print(f"[OK] PDF interativo gerado com sucesso em:\n{OUTPUT_PDF}")
 
 if __name__ == "__main__":
     asyncio.run(main())
