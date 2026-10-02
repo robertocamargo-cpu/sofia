@@ -335,7 +335,7 @@ HTML_CONTENT = """<!DOCTYPE html>
       </div>
       <div class="toc-grid">
         <a class="toc-link" href="#job-1"><span class="toc-num">1</span> 01. Lançamento de Boletos e Faturas (PDF)</a>
-        <a class="toc-link" href="#job-2"><span class="toc-num">2</span> 02. Lançamento de Guias GNRE</a>
+        <a class="toc-link" href="#job-2"><span class="toc-num">2</span> 02. Lançamento de Guias GNRE (ERP)</a>
         <a class="toc-link" href="#job-3"><span class="toc-num">3</span> 03. Vale Refeição em Lote (VR)</a>
         <a class="toc-link" href="#job-4"><span class="toc-num">4</span> 04. Adiantamento Salarial em Lote</a>
         <a class="toc-link" href="#job-5"><span class="toc-num">5</span> 05. Folha de Pagamento (Resumo Líquido)</a>
@@ -346,6 +346,14 @@ HTML_CONTENT = """<!DOCTYPE html>
         <a class="toc-link" href="#job-10"><span class="toc-num">10</span> 10. Relatório Oficial Contas a Receber (2004)</a>
         <a class="toc-link" href="#job-11"><span class="toc-num">11</span> 11. Consulta de Histórico de Lotes</a>
         <a class="toc-link" href="#job-12"><span class="toc-num">12</span> 12. Incentivo / Prêmio de Vendas (Nevine)</a>
+        <a class="toc-link" href="#job-13"><span class="toc-num">13</span> 13. Faturamento & Emissão de NF-e (ERP)</a>
+        <a class="toc-link" href="#job-14"><span class="toc-num">14</span> 14. Consulta de DANFE / XML (ERP)</a>
+        <a class="toc-link" href="#job-15"><span class="toc-num">15</span> 15. Ordem de Produção - OP (ERP)</a>
+        <a class="toc-link" href="#job-16"><span class="toc-num">16</span> 16. Emissão de Guia GNRE (Portal Sefaz)</a>
+        <a class="toc-link" href="#job-17"><span class="toc-num">17</span> 17. Previsão Financeira & Fluxo de Caixa</a>
+        <a class="toc-link" href="#job-18"><span class="toc-num">18</span> 18. Fechamento Fiscal Mensal (XMLs + 2001)</a>
+        <a class="toc-link" href="#job-19"><span class="toc-num">19</span> 19. Espelho de Ponto Eletrônico (REP)</a>
+        <a class="toc-link" href="#job-20"><span class="toc-num">20</span> 20. Dashboard de Métricas & API (8080)</a>
       </div>
     </div>
 
@@ -677,10 +685,210 @@ HTML_CONTENT = """<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- 13. NFE FATURAMENTO -->
+    <div class="job-section" id="job-13">
+      <div class="job-card">
+        <div class="job-header">
+          <div class="job-title-group">
+            <span class="job-icon">🏭</span>
+            <span class="job-title">13. Faturamento & Emissão Automática de NF-e</span>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-tela">Tela 0103030100</span>
+            <span class="badge badge-auto">Emissão + Boleto</span>
+          </div>
+        </div>
+        <div class="job-body">
+          <p class="job-desc">Localiza o pedido na grade de faturamento do ERP ADMSIS, clica em Gerar NF-e, confirma autorização perante a Sefaz e, caso a forma de pagamento seja Boleto, emite automaticamente os boletos de cobrança.</p>
+          <div class="command-box">
+            <span class="command-label">Comando no Discord</span>
+            <span class="command-code">@SofIA faturar pedido 1585</span>
+            <span class="command-note">Ou: "@SofIA crie a NF 1585"</span>
+          </div>
+          <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 14. DANFE / XML -->
+    <div class="job-section" id="job-14">
+      <div class="job-card">
+        <div class="job-header">
+          <div class="job-title-group">
+            <span class="job-icon">🔍</span>
+            <span class="job-title">14. Consulta de DANFE e Baixa de XML de NF-e</span>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-tela">Tela 0103050100</span>
+            <span class="badge badge-auto">Download PDF/XML</span>
+          </div>
+        </div>
+        <div class="job-body">
+          <p class="job-desc">Consulta o status da nota fiscal no ADMSIS pelo número do pedido, clica em DANFE e Baixar XML, capturando os arquivos e anexando-os diretamente na conversa do Discord.</p>
+          <div class="command-box">
+            <span class="command-label">Comando no Discord</span>
+            <span class="command-code">@SofIA danfe 1585</span>
+            <span class="command-note">Ou: "@SofIA ver nf 1585", "@SofIA xml 1585"</span>
+          </div>
+          <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 15. ORDEM DE PRODUÇÃO -->
+    <div class="job-section" id="job-15">
+      <div class="job-card">
+        <div class="job-header">
+          <div class="job-title-group">
+            <span class="job-icon">⚙️</span>
+            <span class="job-title">15. Conclusão de Ordem de Produção (OP)</span>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-tela">Tela 0102080100</span>
+            <span class="badge badge-auto">Produção</span>
+          </div>
+        </div>
+        <div class="job-body">
+          <p class="job-desc">Filtra a OP pelo número do pedido, seleciona os componentes no grid/iframe e dispara a conclusão formal da ordem no ERP ADMSIS.</p>
+          <div class="command-box">
+            <span class="command-label">Comando no Discord</span>
+            <span class="command-code">@SofIA avançar op 1585</span>
+            <span class="command-note">Ou: "@SofIA ordem de produção 1585", "@SofIA op 1585"</span>
+          </div>
+          <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 16. EMISSÃO GNRE SEFAZ -->
+    <div class="job-section" id="job-16">
+      <div class="job-card">
+        <div class="job-header">
+          <div class="job-title-group">
+            <span class="job-icon">🏛️</span>
+            <span class="job-title">16. Emissão de Guia GNRE (Portal Sefaz Nacional)</span>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-tela">Portal GNRE</span>
+            <span class="badge badge-auto">ICMS-ST / FCP</span>
+          </div>
+        </div>
+        <div class="job-body">
+          <p class="job-desc">Varre a planilha de pedidos interestaduais, extrai dados de tributação do ERP (ICMS-ST, FCP, Inscrição Estadual, Chave DFe), acessa o portal nacional da GNRE via Camoufox, preenche e baixa o PDF oficial da guia.</p>
+          <div class="command-box">
+            <span class="command-label">Comando no Discord</span>
+            <span class="command-code">@SofIA crie a GNRE do pedido 1760</span>
+            <span class="command-note">Ou: "@SofIA verificar gnre" (para varredura geral de pendências da planilha)</span>
+          </div>
+          <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 17. PREVISÃO FINANCEIRA -->
+    <div class="job-section" id="job-17">
+      <div class="job-card">
+        <div class="job-header">
+          <div class="job-title-group">
+            <span class="job-icon">📈</span>
+            <span class="job-title">17. Previsão Financeira & Fluxo de Caixa Diário</span>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-tela">Telas 2004/2015</span>
+            <span class="badge badge-auto">Google Sheets</span>
+          </div>
+        </div>
+        <div class="job-body">
+          <p class="job-desc">Extrai os relatórios 2004 (Receber) e 2015 (Pagar) do ADMSIS, aplica regras de compensação bancária e feriados por filial (302, 429, 551, 601, Nevine), duplica a aba no Google Sheets e preenche as 50 células automaticamente.</p>
+          <div class="command-box">
+            <span class="command-label">Comando no Discord</span>
+            <span class="command-code">@SofIA gerar previsão</span>
+            <span class="command-note">Ou: "@SofIA fluxo de caixa", "@SofIA atualizar previsão"</span>
+          </div>
+          <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 18. FECHAMENTO FISCAL XML -->
+    <div class="job-section" id="job-18">
+      <div class="job-card">
+        <div class="job-header">
+          <div class="job-title-group">
+            <span class="job-icon">📦</span>
+            <span class="job-title">18. Fechamento Fiscal Mensal (XMLs + Relatório 2001)</span>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-tela">Telas 0104040100 / 0117020100</span>
+            <span class="badge badge-auto">Fechamento Fiscal</span>
+          </div>
+        </div>
+        <div class="job-body">
+          <p class="job-desc">Gera e baixa os pacotes compactados de todos os XMLs de notas fiscais emitidas no mês e o Relatório 2001 (Faturamento por Filial) para as 5 filiais da empresa, organizando tudo em pastas por filial.</p>
+          <div class="command-box">
+            <span class="command-label">Comando no Discord</span>
+            <span class="command-code">@SofIA fechamento fiscal 09/2026</span>
+            <span class="command-note">Ou: "@SofIA fechamento xml", "@SofIA xmls do mês"</span>
+          </div>
+          <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 19. PONTO ELETRÔNICO -->
+    <div class="job-section" id="job-19">
+      <div class="job-card">
+        <div class="job-header">
+          <div class="job-title-group">
+            <span class="job-icon">⏱️</span>
+            <span class="job-title">19. Espelho de Ponto Eletrônico Consolidado (REP Henry)</span>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-tela">REP 601 + Nevine</span>
+            <span class="badge badge-auto">HTML Interativo</span>
+          </div>
+        </div>
+        <div class="job-body">
+          <p class="job-desc">Consolida arquivos de marcação AFD dos relógios Henry das unidades 601 e Nevine, calcula carga horária CLT (tolerância de 10 minutos, horas extras, atrasos e faltas) e entrega o espelho em HTML interativo com filtros por colaborador.</p>
+          <div class="command-box">
+            <span class="command-label">Comando no Discord</span>
+            <span class="command-code">@SofIA espelho de ponto</span>
+            <span class="command-note">Ou: "@SofIA consolidado de ponto", "@SofIA ponto de hoje"</span>
+          </div>
+          <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 20. MÉTRICAS CONSOLIDADAS -->
+    <div class="job-section" id="job-20">
+      <div class="job-card">
+        <div class="job-header">
+          <div class="job-title-group">
+            <span class="job-icon">📊</span>
+            <span class="job-title">20. Dashboard de Métricas Operacionais & Servidor HTTP</span>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-tela">Porta 8080</span>
+            <span class="badge badge-auto">API REST</span>
+          </div>
+        </div>
+        <div class="job-body">
+          <p class="job-desc">Centraliza métricas de produção de NF-e, Boletos e Guias GNRE em tempo real, fornecendo endpoints JSON em <code>http://localhost:8080/metricas</code> e cards resumidos no chat do Discord.</p>
+          <div class="command-box">
+            <span class="command-label">Comando no Discord</span>
+            <span class="command-code">@SofIA metricas</span>
+            <span class="command-note">Ou: "@SofIA dashboard", "@SofIA estatisticas"</span>
+          </div>
+          <a class="back-to-top" href="#topo">↑ Voltar ao Índice</a>
+        </div>
+      </div>
+    </div>
+
     <!-- FOOTER -->
     <div class="footer">
-      Automação Contas a Pagar & Receber • ERP ADMSIS • Assistente SofIA<br>
-      Documento gerado em 01/10/2026 • Todos os direitos reservados.
+      Super SofIA • Central Unificada de Automações ERP ADMSIS & Financeiro<br>
+      Documento atualizado em Outubro/2026 • Todos os direitos reservados.
     </div>
 
   </div>
