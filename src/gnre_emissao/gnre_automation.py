@@ -142,9 +142,16 @@ def enviar_discord(pdf_path, dados):
     """Envia PDF ao Discord. Tenta webhook primeiro (mais confiável),
     bot token como fallback."""
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+    bot_token = (os.getenv("DISCORD_BOT_TOKEN") or DISCORD_BOT_TOKEN).strip()
+    canal_id = (
+        os.getenv("DISCORD_GNRE_REPORT_CHANNEL_ID")
+        or os.getenv("DISCORD_GNRE_CHANNEL_ID")
+        or os.getenv("DISCORD_CHANNEL_ID")
+        or DISCORD_GNRE_REPORT_CHANNEL_ID
+    ).strip()
     bot_url = None
-    if DISCORD_BOT_TOKEN and DISCORD_GNRE_REPORT_CHANNEL_ID:
-        bot_url = f"https://discord.com/api/v10/channels/{DISCORD_GNRE_REPORT_CHANNEL_ID}/messages"
+    if bot_token and canal_id:
+        bot_url = f"https://discord.com/api/v10/channels/{canal_id}/messages"
     if not webhook_url and not bot_url:
         print("  [INFO] Discord nao configurado; envio do PDF ignorado.")
         return False
@@ -215,9 +222,16 @@ def enviar_alerta_discord(mensagem):
     """Envia alerta de texto ao Discord. Tenta webhook primeiro (mais confiável),
     bot token como fallback."""
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+    bot_token = (os.getenv("DISCORD_BOT_TOKEN") or DISCORD_BOT_TOKEN).strip()
+    canal_id = (
+        os.getenv("DISCORD_GNRE_REPORT_CHANNEL_ID")
+        or os.getenv("DISCORD_GNRE_CHANNEL_ID")
+        or os.getenv("DISCORD_CHANNEL_ID")
+        or DISCORD_GNRE_REPORT_CHANNEL_ID
+    ).strip()
     bot_url = None
-    if DISCORD_BOT_TOKEN and DISCORD_GNRE_REPORT_CHANNEL_ID:
-        bot_url = f"https://discord.com/api/v10/channels/{DISCORD_GNRE_REPORT_CHANNEL_ID}/messages"
+    if bot_token and canal_id:
+        bot_url = f"https://discord.com/api/v10/channels/{canal_id}/messages"
 
     if not webhook_url and not bot_url:
         print("  [INFO] Discord nao configurado; alerta ignorado.")

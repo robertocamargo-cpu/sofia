@@ -1,6 +1,8 @@
-# Automação de Contas a Pagar & Assistente SofIA (ADMSIS ERP)
+# Super SofIA - Administrativo (ADMSIS ERP)
 
-Sistema de automação RPA para leitura de documentos financeiros (Boletos, GNREs, Holerites e Notas Fiscais), lançamento no ERP **ADMSIS**, anexo de comprovantes no **GED**, emissão da **Autorização de Pagamento oficial em PDF** e integração com bot no **Discord**.
+Sistema unificado de automação RPA para operações administrativas, financeiras, fiscais e departamento pessoal (Boletos, Faturamento/NF-e, GNRE Sefaz, Fechamento Fiscal, Folha, VR, Adiantamentos, Ponto e Previsão Financeira), integrado com o ERP **ADMSIS**, **GED** e bot no **Discord**.
+
+> ℹ️ **Nota de Escopo**: Este repositório é exclusivo da **Super SofIA (Administrativo)**. As operações comerciais (orçamentos, pedidos de venda e frete) são de responsabilidade exclusiva da **NatalIA** no projeto separado `assistente`.
 
 ---
 

@@ -30,6 +30,14 @@ sessao_robo/
 locks/
 *.db
 
+# Temporary and Scratch Files
+*.csv
+*.log
+*.zip
+*.png
+discord_channels.txt
+data/*_backup_*.json
+
 # IDEs
 .vscode/
 .idea/

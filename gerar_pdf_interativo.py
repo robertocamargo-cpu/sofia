@@ -2,13 +2,22 @@
 Script para geração de PDF Interativo e Estilizado do Portfólio de Jobs da Super SofIA.
 Cada Job possui estritamente UM comando oficial no Discord, conforme solicitado.
 Renderiza HTML/CSS moderno via Playwright em PDF A4 com links internos navegáveis.
+Totalmente atualizado com as regras vigentes:
+- Itens 1 e 2: Observação destacando envio obrigatório do arquivo PDF (Boleto/Guia GNRE)
+- Itens 4 e 5: Observação detalhando envio obrigatório do PDF do "Relatório de Líquidos"
+- NF-e: 2 planilhas ativas (Parceiras diária + Transportadora mensal), 07:50 às 18:50 de hora em hora
+- GNRE: 09:30, 13:30 e 15:30 com alertas e upload de PDF no Discord
+- Previsão: Unificada exclusivamente às 09:30 no Windows, 100% invisível com auto-login Google
 """
 
 import os
+import shutil
 import asyncio
 from playwright.async_api import async_playwright
 
-OUTPUT_PDF = os.path.join(os.path.dirname(__file__), "Manual_Interativo_SofIA.pdf")
+OUTPUT_DIR = os.path.dirname(__file__)
+OUTPUT_PDF = os.path.join(OUTPUT_DIR, "Manual_Interativo_SofIA.pdf")
+DESKTOP_PDF = os.path.join(os.path.dirname(OUTPUT_DIR), "Manual_Interativo_SofIA.pdf")
 
 HTML_CONTENT = """<!DOCTYPE html>
 <html lang="pt-BR">
@@ -159,6 +168,46 @@ HTML_CONTENT = """<!DOCTYPE html>
       flex-shrink: 0;
     }
 
+    /* MATRIZ DE AGENDAMENTOS */
+    .schedule-matrix {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 24px;
+    }
+
+    .schedule-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--dark);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .schedule-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+    }
+
+    .schedule-table th, .schedule-table td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .schedule-table th {
+      background: #f1f5f9;
+      color: var(--dark);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.5px;
+    }
+
     /* JOB CARDS */
     .job-section {
       margin-bottom: 16px;
@@ -222,6 +271,11 @@ HTML_CONTENT = """<!DOCTYPE html>
       color: #166534;
     }
 
+    .badge-cron {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
     .job-body {
       padding: 12px 14px;
     }
@@ -229,7 +283,20 @@ HTML_CONTENT = """<!DOCTYPE html>
     .job-desc {
       font-size: 12px;
       color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .job-obs {
+      background: #eff6ff;
+      border-left: 3px solid var(--primary);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #1e40af;
       margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     /* COMMAND BOX (EXATAMENTE UM COMANDO) */
@@ -283,17 +350,54 @@ HTML_CONTENT = """<!DOCTYPE html>
     
     <!-- HEADER -->
     <div class="header" id="topo">
-      <div class="header-badge">Super SofIA • Automação Unificada ERP ADMSIS</div>
+      <div class="header-badge">Super SofIA • Automação Unificada ERP ADMSIS & Financeiro</div>
       <h1>Manual de Jobs & Comandos Oficiais da SofIA</h1>
-      <p>Catálogo operacional completo da Super SofIA. Para cada job cadastrado na plataforma, é exibido estritamente o seu comando oficial único de acionamento no Discord.</p>
+      <p>Catálogo operacional completo da Super SofIA. Para cada job cadastrado na plataforma, é exibido estritamente o seu comando oficial único de acionamento no Discord e as regras de agendamento em segundo plano.</p>
     </div>
 
     <!-- REGRA GERAL -->
     <div class="rule-callout">
       <span style="font-size: 16px;">💡</span>
       <div>
-        <strong>Regra de Acionamento:</strong> A SofIA responde no canal quando mencionada (<code>@SofIA</code>), pelo nome (<code>sofia ...</code>), mensagem direta (DM) ou reply.
+        <strong>Regra de Acionamento:</strong> A SofIA responde no canal quando mencionada (<code>@SofIA</code>), pelo nome (<code>sofia ...</code>), mensagem direta (DM) ou reply. Todas as execuções automáticas ocorrem em modo 100% oculto (background).
       </div>
+    </div>
+
+    <!-- MATRIZ DE AGENDAMENTOS ATIVOS -->
+    <div class="schedule-matrix">
+      <div class="schedule-title">
+        <span>⏰</span> Grade Oficial de Execuções Automáticas (Windows Task Scheduler)
+      </div>
+      <table class="schedule-table">
+        <thead>
+          <tr>
+            <th>Processo / Job</th>
+            <th>Frequência / Horários</th>
+            <th>Modo Operacional</th>
+            <th>Notificação Discord</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Faturamento & NF-e</strong> (Job 13)</td>
+            <td>11x ao dia: 07:50 às 18:50 (de hora em hora aos :50)</td>
+            <td>Invisível (2 planilhas: Parceiras e Transportadora)</td>
+            <td>✅ Relatório consolidado pela SofIA</td>
+          </tr>
+          <tr>
+            <td><strong>Previsão Financeira</strong> (Job 17)</td>
+            <td>Diário às <strong>09:30:00</strong> (Horário Unificado)</td>
+            <td>Invisível via pythonw + Auto-login Google</td>
+            <td>✅ Atualização direta no Google Sheets</td>
+          </tr>
+          <tr>
+            <td><strong>Emissão de GNRE</strong> (Job 16)</td>
+            <td>3x ao dia: <strong>09:30</strong>, <strong>13:30</strong> e <strong>15:30</strong></td>
+            <td>Invisível (Aba vigente Outubro / Camoufox)</td>
+            <td>✅ Upload de PDFs e status no canal</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <!-- ÍNDICE INTERATIVO -->
@@ -341,6 +445,10 @@ HTML_CONTENT = """<!DOCTYPE html>
         </div>
         <div class="job-body">
           <p class="job-desc">Lê linha digitável, favorecido, valor e vencimento do PDF. Clona o título no ERP aplicando D-1, anexa o documento no GED e faz download da Autorização de Pagamento.</p>
+          <div class="job-obs">
+            <span>📎</span>
+            <span><strong>Obs:</strong> É necessário <strong>enviar/anexar o arquivo PDF do boleto ou fatura</strong> no Discord junto com o comando para que a SofIA faça a leitura dos dados e execute o lançamento.</span>
+          </div>
           <div class="command-box">
             <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA lance este pagamento</span>
@@ -365,6 +473,10 @@ HTML_CONTENT = """<!DOCTYPE html>
         </div>
         <div class="job-body">
           <p class="job-desc">Lança guias estaduais GNRE no Contas a Pagar do ADMSIS, respeitando estritamente o vencimento original impresso na guia (sem D-1) e anexando o comprovante.</p>
+          <div class="job-obs">
+            <span>📎</span>
+            <span><strong>Obs:</strong> É necessário <strong>enviar/anexar o arquivo PDF da Guia GNRE</strong> no Discord junto com o comando para que a SofIA extraia os dados e realize o lançamento oficial no ERP.</span>
+          </div>
           <div class="command-box">
             <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA lance a GNRE</span>
@@ -408,11 +520,15 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0103070100</span>
-            <span class="badge badge-auto">Holerites</span>
+            <span class="badge badge-auto">Relatório de Líquidos</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Lê a relação de adiantamentos quinzenais em PDF, localiza colaboradores no cadastro do ERP e lança os títulos individuais com plano de contas de Adiantamento Salarial.</p>
+          <p class="job-desc">Processa a relação de adiantamentos quinzenais, localiza os colaboradores no cadastro do ERP e lança os títulos individuais com plano de contas de Adiantamento Salarial.</p>
+          <div class="job-obs">
+            <span>📎</span>
+            <span><strong>Obs:</strong> É necessário <strong>enviar/anexar o PDF do "Relatório de Líquidos"</strong> (Relação Oficial de Líquidos de Adiantamento gerada pelo sistema de folha) junto com o comando para a SofIA.</span>
+          </div>
           <div class="command-box">
             <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA lance adiantamento filial 601</span>
@@ -432,11 +548,15 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0103070100</span>
-            <span class="badge badge-auto">Resumo Líquido</span>
+            <span class="badge badge-auto">Relatório de Líquidos</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Processa o PDF oficial de Resumo de Líquido da Folha de Pagamento e grava os salários líquidos mensais de todos os colaboradores no ERP ADMSIS.</p>
+          <p class="job-desc">Processa a folha de pagamento mensal e grava os salários líquidos de todos os colaboradores no Contas a Pagar do ERP ADMSIS.</p>
+          <div class="job-obs">
+            <span>📎</span>
+            <span><strong>Obs:</strong> É necessário <strong>enviar/anexar o PDF do "Relatório de Líquidos"</strong> (Resumo/Relação Oficial de Líquidos da Folha Mensal) junto com o comando para a SofIA.</span>
+          </div>
           <div class="command-box">
             <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA lance pagamento filial 601</span>
@@ -624,11 +744,12 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Tela 0103030100</span>
-            <span class="badge badge-auto">Emissão + Boleto</span>
+            <span class="badge badge-auto">2 Planilhas Ativas</span>
+            <span class="badge badge-cron">07:50 - 18:50 (Horário)</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Localiza o pedido na grade de faturamento do ADMSIS, dispara a autorização da NF-e e, caso a forma de pagamento seja boleto, gera os boletos bancários automaticamente.</p>
+          <p class="job-desc">Analisa simultaneamente as duas planilhas oficiais (<em>Planilha Parceiras</em> com abas diárias 01 a 31 e <em>Planilha Transportadora</em> com abas mensais). Emite a NF-e no ERP, autoriza o faturamento, gera boletos bancários caso aplicável e reporta o resumo consolidado no Discord.</p>
           <div class="command-box">
             <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA faturar pedido 1585</span>
@@ -696,11 +817,12 @@ HTML_CONTENT = """<!DOCTYPE html>
           </div>
           <div class="job-badges">
             <span class="badge badge-tela">Portal GNRE</span>
-            <span class="badge badge-auto">ICMS-ST / FCP</span>
+            <span class="badge badge-auto">Upload Discord</span>
+            <span class="badge badge-cron">09:30, 13:30, 15:30</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Extrai impostos interestaduais no ERP (ICMS-ST, FCP, IE, Chave DFe), acessa o Portal Nacional da GNRE via Camoufox, preenche os formulários e baixa o PDF oficial.</p>
+          <p class="job-desc">Lê os pedidos fora de SP na aba vigente de Outubro da planilha de transportes. Extrai impostos no ERP (ICMS-ST, FCP, IE, Chave DFe), preenche as guias no portal via Camoufox, baixa o PDF e publica o arquivo e relatório diretamente no canal oficial do Discord.</p>
           <div class="command-box">
             <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA crie a GNRE do pedido 1760</span>
@@ -721,10 +843,11 @@ HTML_CONTENT = """<!DOCTYPE html>
           <div class="job-badges">
             <span class="badge badge-tela">Telas 2004/2015</span>
             <span class="badge badge-auto">Google Sheets</span>
+            <span class="badge badge-cron">Diário às 09:30 (Unificado)</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Baixa relatórios 2004 e 2015 no ERP, aplica regras de compensação bancária e feriados por filial (302, 429, 551, 601, Nevine) e preenche as 50 células no Google Sheets.</p>
+          <p class="job-desc">Executa pontualmente às 09:30:00 em modo 100% invisível (pythonw). Baixa relatórios 2004 e 2015 no ERP, aplica regras de compensação bancária e feriados por filial (302, 429, 551, 601, Nevine), autentica com auto-login Google e atualiza as 50 células no Google Sheets.</p>
           <div class="command-box">
             <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA gerar previsão</span>
@@ -815,12 +938,12 @@ HTML_CONTENT = """<!DOCTYPE html>
             <span class="job-title">21. Cronograma de Tarefas Automáticas (Cron)</span>
           </div>
           <div class="job-badges">
-            <span class="badge badge-tela">Loop Assíncrono</span>
-            <span class="badge badge-auto">Fila erp_lock</span>
+            <span class="badge badge-tela">Task Scheduler</span>
+            <span class="badge badge-auto">Modo Oculto</span>
           </div>
         </div>
         <div class="job-body">
-          <p class="job-desc">Exibe o status do agendador interno em segundo plano, horários programados (NF-e de hora em hora, GNRE às 09h/11h/14h/16h e Previsão às 09h30) e horários da última rodada.</p>
+          <p class="job-desc">Exibe o status do agendador do Windows em segundo plano, horários programados (NF-e de hora em hora das 07:50 às 18:50, GNRE às 09:30/13:30/15:30 e Previsão às 09:30) e histórico da última rodada executada.</p>
           <div class="command-box">
             <span class="command-label">Comando:</span>
             <span class="command-code">@SofIA agendamentos</span>
@@ -833,7 +956,7 @@ HTML_CONTENT = """<!DOCTYPE html>
     <!-- FOOTER -->
     <div class="footer">
       Super SofIA • Central Unificada de Automações ERP ADMSIS & Financeiro<br>
-      Manual atualizado em Outubro/2026 • 21 Jobs com Comando Único Oficial.
+      Manual atualizado em Outubro/2026 • 21 Jobs com Comando Único Oficial • Operação 100% Windows.
     </div>
 
   </div>
@@ -863,6 +986,13 @@ async def main():
         await browser.close()
         
     print(f"[OK] PDF interativo gerado com sucesso em:\n{OUTPUT_PDF}")
+    
+    # Copiar também para a Área de Trabalho raiz
+    try:
+        shutil.copy2(OUTPUT_PDF, DESKTOP_PDF)
+        print(f"[OK] Cópia atualizada na Área de Trabalho:\n{DESKTOP_PDF}")
+    except Exception as e:
+        print(f"[AVISO] Falha ao copiar para Área de Trabalho: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -21,7 +21,7 @@ LOG_PATH = os.path.join(BASE_DIR, "logs", "nfe_cron.log")
 LOCKS_DIR = os.path.join(BASE_DIR, "locks")
 
 log_handlers = [logging.FileHandler(LOG_PATH)]
-if sys.stdout.isatty():
+if sys.stdout and sys.stdout.isatty():
     log_handlers.append(logging.StreamHandler(sys.stdout))
 
 logging.basicConfig(
@@ -33,20 +33,20 @@ logging.basicConfig(
 # Tentar carregar variaveis do arquivo .env se ele existir
 # Usa setdefault para nao sobrescrever variaveis ja definidas na linha de comando
 try:
-    env_path = os.path.join(BASE_DIR, ".env")
-    if os.path.exists(env_path):
-        with open(env_path, "r") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, value = line.split("=", 1)
-                os.environ.setdefault(key.strip(), value.strip())
+    for env_candidate in [os.path.join(BASE_DIR, ".env"), os.path.join(os.path.dirname(BASE_DIR), ".env")]:
+        if os.path.exists(env_candidate):
+            with open(env_candidate, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    os.environ.setdefault(key.strip(), value.strip())
 except:
     pass
 
 # ─── Configuracoes ─────────────────────────────────────────────────────────
-SPREADSHEET_ID_1  = os.getenv("SPREADSHEET_ID_PRINCIPAL", os.getenv("SPREADSHEET_ID", "1dvIgAH5B3ePkB_4npXRMVcOB6GUBt8JhCFy5D5u-igs"))
+SPREADSHEET_ID_1  = os.getenv("SPREADSHEET_ID_PARCEIRAS", os.getenv("SPREADSHEET_ID_PRINCIPAL", os.getenv("SPREADSHEET_ID", "1cM0GE9g7aj5hY3F-WltBJqsEjjedUl7kOZa6r2jj1DI")))
 SPREADSHEET_URL_1 = "https://docs.google.com/spreadsheets/d/" + SPREADSHEET_ID_1 + "/edit"
 
 SPREADSHEET_ID_2  = os.getenv("SPREADSHEET_ID_TRANSPORTE", "1pVnhOWvuGKn66CmXNhEZNTPpsiQMcBUpyrYtHMcmp-g")
@@ -67,8 +67,8 @@ def get_target_day():
 ABA_ALVO = get_target_day()
 
 ERP_URL = "https://erp.admsis.com/Home"
-USUARIO = os.getenv("ERP_USER")
-SENHA   = os.getenv("ERP_PASS")
+USUARIO = os.getenv("ERP_USER") or os.getenv("ERP_USERNAME")
+SENHA   = os.getenv("ERP_PASS") or os.getenv("ERP_PASSWORD")
 
 GOOGLE_USER = os.getenv("GOOGLE_USER", "")
 GOOGLE_PASS = os.getenv("GOOGLE_PASS", "")
@@ -103,6 +103,11 @@ def env_int(nome_variavel, padrao=0):
 
 
 def validar_credenciais_erp():
+    global USUARIO, SENHA
+    if not USUARIO:
+        USUARIO = os.getenv("ERP_USER") or os.getenv("ERP_USERNAME")
+    if not SENHA:
+        SENHA = os.getenv("ERP_PASS") or os.getenv("ERP_PASSWORD")
     if USUARIO and SENHA:
         return True
     logging.info("ERRO FATAL: Credenciais do ERP nao encontradas no .env!")
@@ -856,13 +861,13 @@ async def realizar_login_erp(erp_page):
         
         # Verificar se ja esta logado (se ja vemos o nome do usuario ou menu)
         logging.info("      Verificando sessao ativa...")
-        usuario_logado = erp_page.locator(f'text="{USUARIO}"').first
-        dashboard = erp_page.locator('text="Faturamento", text="Pedidos"').first
+        usuario_logado = erp_page.locator(f'text=/{USUARIO}/i').first
+        dashboard = erp_page.locator('text=/Faturamento|Pedidos|Notas Fiscais/i').first
         
         esta_logado = False
         try:
             # Esperar 5s para ver se ja carrega logado
-            if await usuario_logado.count() > 0 or await dashboard.count() > 0:
+            if await usuario_logado.count() > 0 or await dashboard.count() > 0 or await erp_page.locator('text=/robotron/i').count() > 0:
                 esta_logado = True
         except: pass
 
@@ -881,7 +886,28 @@ async def realizar_login_erp(erp_page):
 
             await erp_page.fill('input[name="usu_codigo"]', USUARIO)
             await erp_page.fill('input[name="usu_senha"]', SENHA)
-            await erp_page.click('button#login')
+
+            # Fechar qualquer alerta ou modal residual do ERP que intercepte cliques
+            try:
+                modal_alerta = erp_page.locator('#eng_alerta, .modal.in, .modal.fade.in')
+                if await modal_alerta.count() > 0 and await modal_alerta.first.is_visible():
+                    btn_fechar_alerta = erp_page.locator('#eng_alerta button, .modal.in button:has-text("Fechar"), .modal.in button:has-text("OK")').first
+                    if await btn_fechar_alerta.count() > 0 and await btn_fechar_alerta.is_visible():
+                        await btn_fechar_alerta.click()
+                        await asyncio.sleep(1)
+                    else:
+                        await erp_page.keyboard.press("Escape")
+            except:
+                pass
+
+            try:
+                await erp_page.click('button#login', force=True, timeout=8000)
+            except Exception:
+                try:
+                    await erp_page.keyboard.press("Enter")
+                except Exception:
+                    await erp_page.evaluate("() => { const b = document.getElementById('login'); if(b) b.click(); }")
+
             await asyncio.sleep(5)
             await esperar_carregamento_erp(erp_page)
             logging.info("      Login realizado com sucesso.")
@@ -1004,32 +1030,43 @@ async def main():
 
     logging.info("=== Automacao NFe Independente ===")
 
-    planilhas_config = [
-        {
-            "nome": nome_principal,
+    nome_principal_base = "Planilha Parceiras" if not url_principal_custom else "Planilha Parceiras (custom)"
+
+    # Se informado por linha de comando, usa a aba específica. 
+    # Caso contrário, varre SEMPRE tanto a aba de HOJE quanto a de AMANHÃ para não deixar notas para trás.
+    if len(sys.argv) > 1:
+        abas_parceiras = [sys.argv[1]]
+    else:
+        agora_dt = datetime.datetime.now()
+        dia_hoje = agora_dt.strftime("%d")
+        dia_amanha = (agora_dt + datetime.timedelta(days=1)).strftime("%d")
+        abas_parceiras = [dia_hoje]
+        if dia_amanha != dia_hoje:
+            abas_parceiras.append(dia_amanha)
+
+    planilhas_config = []
+    for aba_p in abas_parceiras:
+        planilhas_config.append({
+            "nome": f"{nome_principal_base} (Aba {aba_p})",
             "url": url_principal,
-            "aba": aba_param,
+            "aba": aba_p,
             "is_mes_atual": False,
-            "force_idx_h": None
-        },
-        {
-            "nome": "Planilha Transportadora",
-            "url": SPREADSHEET_URL_2,
-            "aba": None,
-            "is_mes_atual": True,
-            "force_idx_h": 9 # Coluna J (0-indexed)
-        },
-        {
-            "nome": "Planilha Parceiras",
-            "url": SPREADSHEET_URL_3,
-            "aba": aba_param,
-            "is_mes_atual": False,
-            "force_idx_h": 7 # Coluna H (Nota Fiscal Filial)
-        }
-    ]
+            "force_idx_c": 2, # Coluna C (Número Pedido)
+            "force_idx_h": 7  # Coluna H (Nota Fiscal Filial)
+        })
+
+    planilhas_config.append({
+        "nome": "Planilha Transportadora",
+        "url": SPREADSHEET_URL_2,
+        "aba": None,
+        "is_mes_atual": True,
+        "force_idx_c": 2, # Coluna C (Pedido)
+        "force_idx_h": 9  # Coluna J (Nota Fiscal)
+    })
 
     user_data_dir = get_user_data_dir()
     logging.info(f"      Sessao do robo em: {user_data_dir}")
+    logging.info(f"      Alvos de Faturamento: {[p['nome'] for p in planilhas_config]}")
 
     MAX_RETENTATIVAS_CICLO = 3
     INTERVALO_MINUTOS = 3
@@ -1068,20 +1105,23 @@ async def main():
                         for l in linhas[:3]:
                             logging.info(f"    L{l['linha']}: {l['cells']}")
 
-                    idx_c, idx_h = 2, 7
+                    idx_c = p_conf.get("force_idx_c", 2)
+                    idx_h = p_conf.get("force_idx_h", 7)
                     for row in linhas:
                         if row["linha"] == 2:
                             cells = row["cells"]
-                            for j, cell in enumerate(cells):
+                            for j, cell in enumerate(cells[:15]): # apenas primeiras 15 colunas
                                 txt = re.sub(r"[^a-z0-9]", "", cell.lower().strip())
-                                if "numeropedido" in txt or "nrpedido" in txt: 
+                                if ("numeropedido" in txt or "nrpedido" in txt) and p_conf.get("force_idx_c") is None: 
                                     idx_c = j
-                                if "notafiscalfilial" in txt or "nffilial" in txt: 
+                                if ("notafiscalfilial" in txt or "nffilial" in txt) and p_conf.get("force_idx_h") is None: 
                                     idx_h = j
                             break
                     
-                    if p_conf['force_idx_h'] is not None:
+                    if p_conf.get('force_idx_h') is not None:
                         idx_h = p_conf['force_idx_h']
+                    if p_conf.get('force_idx_c') is not None:
+                        idx_c = p_conf['force_idx_c']
 
                     logging.info(f"\n  Iniciando analise de {len(linhas)} linhas...")
                     pendentes_planilha = 0
@@ -1492,4 +1532,7 @@ async def avancar_ordem_producao(pedido: str) -> str:
             return f"ERRO interno na automação: {e}"
         finally:
             await context.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
 

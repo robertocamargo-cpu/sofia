@@ -157,7 +157,20 @@ async def _rodar_gnre_cron():
 
 async def _rodar_previsao_cron():
     from automacao_previsao import executar_previsao
-    await executar_previsao()
+    res = await executar_previsao()
+    canal_id = os.getenv("DISCORD_PREVISAO_CHANNEL_ID") or os.getenv("DISCORD_ADMIN_CHANNEL_ID") or "1541880446600609902"
+    if canal_id and isinstance(res, dict) and res.get("sucesso"):
+        canal = bot.get_channel(int(canal_id))
+        if canal:
+            embed = discord.Embed(
+                title="📊 Previsão Financeira Automática Concluída",
+                description="A previsão financeira do dia foi gerada e a planilha oficial foi atualizada com sucesso!",
+                color=0x2ecc71
+            )
+            embed.add_field(name="📅 Período", value=res.get("periodo", "Hoje"), inline=True)
+            embed.add_field(name="📑 Aba", value=res.get("aba", "Atual"), inline=True)
+            embed.set_footer(text="Super SofIA • Rotina Agendada das 09:30")
+            await canal.send(embed=embed)
 
 # Armazena estado dos agendamentos para consulta no Discord
 agendamentos_status = {
@@ -172,7 +185,7 @@ async def agendador_sofia():
     as rotinas agendadas (NF-e, GNRE, Previsão) respeitando o erp_lock.
     """
     await bot.wait_until_ready()
-    print("[AGENDADOR] ⏰ Agendador de tarefas em segundo plano ATIVO e operacional!")
+    print("[AGENDADOR] ⏰ Agendador inteligente da Super SofIA ATIVO e operacional!")
 
     ultimas_execucoes = {}
 
@@ -185,33 +198,34 @@ async def agendador_sofia():
 
             # Executa apenas nos dias úteis (Segunda a Sexta)
             if dia_semana in range(5):
-                # 1. NF-e Horária (07:50, 08:50, 09:50, 10:50, 11:50, 12:50, 13:50, 14:50, 15:50, 16:50, 17:50)
+                # 1. Previsão Financeira (09:30)
+                if hh_mm == (9, 30) and ultimas_execucoes.get("previsao") != chave_minuto:
+                    ultimas_execucoes["previsao"] = chave_minuto
+                    agendamentos_status["ultima_execucao"]["previsao"] = agora.strftime("%d/%m/%Y %H:%M")
+                    asyncio.create_task(executar_tarefa_agendada(f"Previsão Financeira ({agora.strftime('%H:%M')})", _rodar_previsao_cron))
+
+                # 2. GNRE Sefaz (10:00, 13:30, 15:30)
+                horarios_gnre = [(10, 0), (13, 30), (15, 30)]
+                if hh_mm in horarios_gnre and ultimas_execucoes.get("gnre") != chave_minuto:
+                    ultimas_execucoes["gnre"] = chave_minuto
+                    agendamentos_status["ultima_execucao"]["gnre"] = agora.strftime("%d/%m/%Y %H:%M")
+                    asyncio.create_task(executar_tarefa_agendada(f"GNRE Sefaz ({agora.strftime('%H:%M')})", _rodar_gnre_cron))
+
+                # 3. NF-e Horária (07:50 até 18:50)
                 horarios_nfe = [
                     (7, 50), (8, 50), (9, 50), (10, 50), (11, 50),
-                    (12, 50), (13, 50), (14, 50), (15, 50), (16, 50), (17, 50)
+                    (12, 50), (13, 50), (14, 50), (15, 50), (16, 50), (17, 50), (18, 50)
                 ]
                 if hh_mm in horarios_nfe and ultimas_execucoes.get("nfe") != chave_minuto:
                     ultimas_execucoes["nfe"] = chave_minuto
                     agendamentos_status["ultima_execucao"]["nfe"] = agora.strftime("%d/%m/%Y %H:%M")
                     asyncio.create_task(executar_tarefa_agendada(f"NF-e / Faturamento ({agora.strftime('%H:%M')})", _rodar_nfe_cron))
 
-                # 2. GNRE (09:00, 11:00, 14:00, 16:00)
-                horarios_gnre = [(9, 0), (11, 0), (14, 0), (16, 0)]
-                if hh_mm in horarios_gnre and ultimas_execucoes.get("gnre") != chave_minuto:
-                    ultimas_execucoes["gnre"] = chave_minuto
-                    agendamentos_status["ultima_execucao"]["gnre"] = agora.strftime("%d/%m/%Y %H:%M")
-                    asyncio.create_task(executar_tarefa_agendada(f"GNRE Sefaz ({agora.strftime('%H:%M')})", _rodar_gnre_cron))
-
-                # 3. Previsão Financeira (09:30)
-                if hh_mm == (9, 30) and ultimas_execucoes.get("previsao") != chave_minuto:
-                    ultimas_execucoes["previsao"] = chave_minuto
-                    agendamentos_status["ultima_execucao"]["previsao"] = agora.strftime("%d/%m/%Y %H:%M")
-                    asyncio.create_task(executar_tarefa_agendada(f"Previsão Financeira ({agora.strftime('%H:%M')})", _rodar_previsao_cron))
-
         except Exception as ex:
             print(f"[AGENDADOR] Erro no loop de agendamento: {ex}")
 
         await asyncio.sleep(20)
+
 
 @bot.event
 async def on_ready():
@@ -264,7 +278,7 @@ async def on_message(message: discord.Message):
         return
 
     # Consulta de Histórico de Lotes Executados
-    if "historico" in conteudo or "histórico" in conteudo:
+    if any(k in conteudo for k in ["historico", "histórico", "lote", "lotes"]):
         from batch_logger import consultar_historico_lotes
         lotes = consultar_historico_lotes(limite=8)
         tabela = formatar_tabela_historico(lotes)
@@ -855,6 +869,17 @@ async def on_message(message: discord.Message):
             return
 
     # ── 1. FATURAMENTO / EMISSÃO DE NF-e ────────────────────────────────────
+    if any(k in conteudo for k in ["faturar planilhas", "rodar faturamento", "faturar tudo", "varrer planilhas", "executar nfe"]):
+        async with gerenciar_sessao_erp(message, "Faturamento Completo das Planilhas"):
+            status_msg = await message.reply("🏭 **Varredura de Faturamento Iniciada!**\nLendo Planilha Parceiras (Hoje + Amanhã) e Planilha Transportadora (Mês Atual)...\nAcessando ERP ADMSIS, emitindo notas e gerando boletos...")
+            try:
+                from gerar_nfe_automatica import main as nfe_main
+                await nfe_main()
+                await status_msg.edit(content="✅ **Varredura de faturamento concluída!** O relatório detalhado com os pedidos autorizados e boletos foi enviado no canal.")
+            except Exception as ex:
+                await status_msg.edit(content=f"❌ Erro ao executar faturamento das planilhas: `{ex}`")
+        return
+
     if any(k in conteudo for k in ["crie a nf", "gerar nf", "gerar nfe", "emitir nf", "emitir nfe", "faturar"]):
         import re
         m_ped = re.search(r"\b(?:nf[e]?|faturar|fature|pedido)?\s*(\d{3,8})\b", conteudo)
@@ -1032,13 +1057,38 @@ async def on_message(message: discord.Message):
                         description=(
                             f"Todos os arquivos fiscais do período **{res_fech.get('periodo')}** foram exportados com sucesso do ERP ADMSIS.\n\n"
                             f"• **Filiais Processadas:** `{fils}`\n"
-                            f"• **Pasta de Destino:** `{res_fech.get('pasta_destino')}`\n"
-                            f"• **Total de Arquivos Gerados:** `{len(res_fech.get('arquivos', []))} arquivos`"
+                            f"• **Pasta no Computador:** `{res_fech.get('pasta_destino')}`\n"
+                            f"• **Total de Arquivos Gerados:** `{len(res_fech.get('arquivos', []))} arquivos`\n\n"
+                            "📦 *Os pacotes ZIP estão sendo disponibilizados abaixo para download de toda a equipe.*"
                         ),
                         color=discord.Color.green()
                     )
                     embed_fech.set_footer(text="Automação Fiscal • ADMSIS ERP")
                     await status_msg.edit(content=None, embed=embed_fech)
+
+                    # Garantir que a notificação e os arquivos sejam enviados para o canal #📝╽assistente-administrativo
+                    canal_admin_id = os.getenv("DISCORD_ADMIN_CHANNEL_ID") or "1541880446600609902"
+                    canal_admin = bot.get_channel(int(canal_admin_id))
+                    
+                    canal_upload = message.channel
+                    if canal_admin and canal_admin.id != message.channel.id:
+                        await canal_admin.send(embed=embed_fech)
+                        canal_upload = canal_admin
+                    
+                    # Anexa cada arquivo ZIP (< 24.5 MB) para download direto da equipe no Discord
+                    for arq_path in res_fech.get("arquivos", []):
+                        if os.path.exists(arq_path) and arq_path.endswith(".zip"):
+                            tam_mb = os.path.getsize(arq_path) / (1024 * 1024)
+                            nome_arq = os.path.basename(arq_path)
+                            if tam_mb < 24.5:
+                                try:
+                                    f_disc = discord.File(arq_path, filename=nome_arq)
+                                    await canal_upload.send(
+                                        content=f"📦 **Pacote Fiscal:** `{nome_arq}` ({tam_mb:.1f} MB)",
+                                        file=f_disc
+                                    )
+                                except Exception as err_up:
+                                    print(f"[FECHAMENTO] Aviso ao subir {nome_arq}: {err_up}")
                 else:
                     embed_fail = discord.Embed(
                         title="❌ Falha no Fechamento Fiscal",
@@ -1089,39 +1139,82 @@ async def on_message(message: discord.Message):
                 if hasattr(db_gnre, "obter_metricas_gnre"):
                     m_gnre = db_gnre.obter_metricas_gnre()
 
+            # Resumo de Lotes (DP / Pagamentos)
+            from batch_logger import carregar_historico_lotes
+            todos_lotes = carregar_historico_lotes()
+            total_lotes = len(todos_lotes)
+            lotes_sucesso = sum(1 for l in todos_lotes if l.get("status") == "SUCESSO")
+            total_colabs = sum(l.get("total_sucesso", 0) for l in todos_lotes)
+            total_reais_lotes = sum(l.get("valor_total_lancado", 0.0) for l in todos_lotes)
+
+            # Resumo de Boletos / Hashes no Contas a Pagar
+            from sofia_core import _carregar_hashes
+            hashes_cadastrados = _carregar_hashes()
+            total_boletos_unicos = len(hashes_cadastrados)
+
             embed_m = discord.Embed(
                 title="📊 Dashboard Geral de Automações - Super SofIA",
-                description="Métricas consolidadas de operação em produção:",
+                description="Métricas consolidadas de todas as rotinas em produção:",
                 color=discord.Color.teal()
             )
+
+            # 1. NF-e
+            nfe_hoje = m_nfe.get('hoje', {}).get('nfe', 0)
+            nfe_ontem = m_nfe.get('ontem', {}).get('nfe', 0)
+            nfe_mes = m_nfe.get('este_mes', {}).get('nfe', 0)
+            dt_hoje = m_nfe.get('hoje', {}).get('data', 'Hoje')
+            dt_ontem = m_nfe.get('ontem', {}).get('data', 'Ontem')
+            mes_label = m_nfe.get('este_mes', {}).get('mes', 'Mês Atual')
             embed_m.add_field(
                 name="🏭 Emissão de NF-e",
                 value=(
-                    f"• **Hoje ({m_nfe['hoje']['data']}):** {m_nfe['hoje']['total']} total | {m_nfe['hoje']['sucesso']} autorizadas\n"
-                    f"• **Ontem ({m_nfe['ontem']['data']}):** {m_nfe['ontem']['total']} total | {m_nfe['ontem']['sucesso']} autorizadas\n"
-                    f"• **Mês Atual ({m_nfe['este_mes']['mes']}):** {m_nfe['este_mes']['total']} total | {m_nfe['este_mes']['sucesso']} autorizadas"
+                    f"• **Hoje ({dt_hoje}):** {nfe_hoje} emitida(s)\n"
+                    f"• **Ontem ({dt_ontem}):** {nfe_ontem} emitida(s)\n"
+                    f"• **Mês Atual ({mes_label}):** {nfe_mes} emitida(s)"
                 ),
                 inline=False
             )
+
+            # 2. Boletos Faturamento
+            bol_hoje = m_nfe.get('hoje', {}).get('boletos', 0)
+            bol_ontem = m_nfe.get('ontem', {}).get('boletos', 0)
+            bol_mes = m_nfe.get('este_mes', {}).get('boletos', 0)
             embed_m.add_field(
                 name="📄 Boletos Faturamento",
                 value=(
-                    f"• **Hoje:** {m_nfe['hoje']['boletos']} boletos gerados\n"
-                    f"• **Ontem:** {m_nfe['ontem']['boletos']} boletos gerados\n"
-                    f"• **Mês Atual:** {m_nfe['este_mes']['boletos']} boletos gerados"
+                    f"• **Hoje:** {bol_hoje} boletos\n"
+                    f"• **Ontem:** {bol_ontem} boletos\n"
+                    f"• **Mês Atual:** {bol_mes} boletos"
                 ),
-                inline=False
+                inline=True
             )
+
+            # 3. GNRE
             if m_gnre:
+                gnre_hoje = m_gnre.get('hoje', {}).get('gnre', 0)
+                gnre_mes = m_gnre.get('este_mes', {}).get('gnre', 0)
                 embed_m.add_field(
                     name="🏛️ Emissão de Guias GNRE",
                     value=(
-                        f"• **Hoje:** {m_gnre.get('hoje', {}).get('sucesso', 0)} guias geradas\n"
-                        f"• **Mês Atual:** {m_gnre.get('este_mes', {}).get('sucesso', 0)} guias geradas\n"
-                        f"• **Taxa de Sucesso:** {m_gnre.get('geral', {}).get('taxa_sucesso', '100%')}"
+                        f"• **Hoje:** {gnre_hoje} guias\n"
+                        f"• **Mês Atual:** {gnre_mes} guias\n"
+                        f"• **Status:** Operacional"
                     ),
-                    inline=False
+                    inline=True
                 )
+
+            # 4. Lotes Financeiros e DP
+            embed_m.add_field(
+                name="💼 Folha, VR e Lotes Financeiros",
+                value=(
+                    f"• **Lotes Processados:** {total_lotes} ({lotes_sucesso} com 100% sucesso)\n"
+                    f"• **Colaboradores Lançados:** {total_colabs}\n"
+                    f"• **Total Movimentado:** {formatar_valor_br(total_reais_lotes)}\n"
+                    f"• **Boletos / Hashes no Pagar:** {total_boletos_unicos} títulos únicos"
+                ),
+                inline=False
+            )
+
             embed_m.add_field(
                 name="🌐 Servidor HTTP de Métricas",
                 value="`http://localhost:8080/metricas` • Ativo e atualizando em tempo real",
@@ -1143,12 +1236,12 @@ async def on_message(message: discord.Message):
         )
         embed_cron.add_field(
             name="🏭 Faturamento & NF-e (De hora em hora)",
-            value="• **Horários:** `07:50, 08:50, 09:50, 10:50, 11:50, 12:50, 13:50, 14:50, 15:50, 16:50, 17:50`\n• **Dias:** Segunda a Sexta\n• **Regra:** Às 07:50 fatura o dia atual; a partir das 08:50 adianta para o próximo dia útil.",
+            value="• **Horários:** `07:50, 08:50, 09:50, 10:50, 11:50, 12:50, 13:50, 14:50, 15:50, 16:50, 17:50, 18:50`\n• **Dias:** Segunda a Sexta\n• **Regra:** Às 07:50 fatura o dia atual; a partir das 08:50 adianta para o próximo dia útil.",
             inline=False
         )
         embed_cron.add_field(
             name="🏛️ Emissão de Guias GNRE (Portal Sefaz)",
-            value="• **Horários:** `09:00, 11:00, 14:00, 16:00`\n• **Dias:** Segunda a Sexta\n• **Ação:** Varredura de pedidos interestaduais na planilha e emissão automática.",
+            value="• **Horários:** `09:30, 13:30, 15:30`\n• **Dias:** Segunda a Sexta\n• **Ação:** Varredura de pedidos interestaduais na planilha e emissão automática.",
             inline=False
         )
         embed_cron.add_field(
@@ -1172,9 +1265,15 @@ async def on_message(message: discord.Message):
         await message.reply(embed=embed_cron)
         return
 
-    # Mostra o menu de ajuda/comandos SOMENTE se o usuário solicitar explicitamente (ou marcar apenas @SofIA)
+    # Mostra o menu de ajuda/comandos SOMENTE se o usuário solicitar explicitamente via "@SofIA h", "ajuda", etc.
     texto_limpo = conteudo.replace(f"<@{bot.user.id}>", "").replace(f"<@!{bot.user.id}>", "").replace("sofia", "").strip()
-    pediu_ajuda = any(k in conteudo for k in ["ajuda", "help", "menu", "comandos", "manual", "o que você faz", "o que voce faz"]) or texto_limpo in ["", "?", "oi", "olá", "ola"]
+
+    # Se marcar apenas @SofIA (sem comando e sem anexo), responde de forma breve e discreta
+    if texto_limpo in ["", "oi", "olá", "ola"] and not message.attachments:
+        await message.reply("👋 Olá! Sou a **SofIA**. Para ver a lista completa de comandos e ajuda, digite: `@SofIA h`")
+        return
+
+    pediu_ajuda = texto_limpo in ["h", "-h", "/h", "help", "ajuda", "?"] or any(k in conteudo for k in ["ajuda", "help", "menu", "comandos", "manual", "o que você faz", "o que voce faz"])
 
     if pediu_ajuda:
         embed_aviso = discord.Embed(

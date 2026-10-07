@@ -72,6 +72,27 @@ class MetricsHandler(http.server.BaseHTTPRequestHandler):
             try:
                 m_nfe = database.obter_metricas()
                 m_gnre = database_gnre.obter_metricas_gnre() if (database_gnre and hasattr(database_gnre, 'obter_metricas_gnre')) else {}
+                
+                # Lotes de DP e Financeiro
+                try:
+                    from batch_logger import carregar_historico_lotes
+                    lotes = carregar_historico_lotes()
+                    lotes_info = {
+                        "total_lotes": len(lotes),
+                        "sucessos": sum(1 for l in lotes if l.get("status") == "SUCESSO"),
+                        "colaboradores_lancados": sum(l.get("total_sucesso", 0) for l in lotes),
+                        "valor_total_lancado": sum(l.get("valor_total_lancado", 0.0) for l in lotes)
+                    }
+                except Exception:
+                    lotes_info = {}
+
+                # Boletos e tributos únicos auditados
+                try:
+                    from sofia_core import _carregar_hashes
+                    hashes_info = {"total_titulos_unicos": len(_carregar_hashes())}
+                except Exception:
+                    hashes_info = {}
+
                 resultado = {
                     "atualizado_em": m_nfe.get("atualizado_em"),
                     "nfe": m_nfe,
@@ -82,7 +103,9 @@ class MetricsHandler(http.server.BaseHTTPRequestHandler):
                         "este_mes": { "boletos": m_nfe["este_mes"]["boletos"], "mes": m_nfe["este_mes"]["mes"] },
                         "mes_passado": { "boletos": m_nfe["mes_passado"]["boletos"], "mes": m_nfe["mes_passado"]["mes"] }
                     },
-                    "gnre": m_gnre
+                    "gnre": m_gnre,
+                    "lotes_financeiros": lotes_info,
+                    "contas_a_pagar": hashes_info
                 }
                 body = json.dumps(resultado, ensure_ascii=False, indent=2).encode("utf-8")
                 self.wfile.write(body)

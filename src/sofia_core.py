@@ -26,17 +26,20 @@ def _calcular_hash(caminho_arquivo: str) -> str:
             sha.update(chunk)
     return sha.hexdigest()
 
-def _carregar_hashes() -> dict:
+def _carregar_hashes(a_partir_de: str = "2026-10-07") -> dict:
     if os.path.exists(HASHES_FILE):
         try:
             with open(HASHES_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                hashes = json.load(f)
+                if a_partir_de:
+                    return {k: v for k, v in hashes.items() if (v.get("timestamp") or "") >= a_partir_de}
+                return hashes
         except:
             return {}
     return {}
 
 def _salvar_hash(file_hash: str, info: dict):
-    hashes = _carregar_hashes()
+    hashes = _carregar_hashes(a_partir_de=None)
     hashes[file_hash] = {
         "timestamp": datetime.now().isoformat(),
         **info
@@ -65,9 +68,18 @@ def _buscar_autorizacao_recente(doc_id: str = None) -> str | None:
 
 def verificar_duplicidade(caminho_arquivo: str) -> Tuple[bool, dict | None]:
     file_hash = _calcular_hash(caminho_arquivo)
-    hashes = _carregar_hashes()
+    hashes = _carregar_hashes(a_partir_de=None)
     if file_hash in hashes:
         return True, hashes[file_hash]
+    backup_file = os.path.join(DATA_DIR, "processed_hashes_backup_pre_07102026.json")
+    if os.path.exists(backup_file):
+        try:
+            with open(backup_file, "r", encoding="utf-8") as f:
+                b_hashes = json.load(f)
+                if file_hash in b_hashes:
+                    return True, b_hashes[file_hash]
+        except:
+            pass
     return False, None
 
 def validar_e_extrair(caminho_arquivo: str, password: str = None) -> list[dict]:

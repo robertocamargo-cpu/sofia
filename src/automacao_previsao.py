@@ -656,6 +656,18 @@ async def atualizar_planilha(page, dados, valores_originais, data_base=None):
     if "accounts.google.com" in page.url:
         print("Login do Google detectado. Inserindo credenciais...")
         try:
+            # 0. Tela "Choose an account" / Selecionar conta existente
+            if "accountchooser" in page.url or await page.locator('text=/Choose an account|Escolha uma conta/i').count() > 0:
+                print("Tela 'Escolha uma conta' detectada. Selecionando conta salva...")
+                conta_existente = page.locator('div[data-identifier], div[data-email], [role="link"]:has-text("@"), li:has-text("@"), div:has-text("financeiro@nevine")').first
+                try:
+                    if await conta_existente.is_visible(timeout=5000):
+                        await conta_existente.click()
+                        await asyncio.sleep(4)
+                        print("Conta selecionada. Aguardando tela de senha...")
+                except Exception as e_acc:
+                    print(f"Aviso ao selecionar conta: {e_acc}")
+
             # Tela "Confirme que é você" (confirmidentifier)
             if "confirmidentifier" in page.url:
                 print("Tela 'Confirme que é você' detectada. Clicando em Avançar...")
@@ -672,7 +684,7 @@ async def atualizar_planilha(page, dados, valores_originais, data_base=None):
             email_selector = 'input[type="email"]:not([aria-hidden="true"]), #identifierId'
             email_field = page.locator(email_selector).first
             try:
-                if await email_field.is_visible(timeout=8000):
+                if await email_field.is_visible(timeout=5000):
                     await email_field.fill(GOOGLE_USER)
                     await page.click('#identifierNext')
                     await asyncio.sleep(4)
@@ -831,7 +843,7 @@ def enviar_aviso_discord(url):
         print("Webhook do Discord não configurado.")
         return
     webhook_url = webhook_url.strip()
-    data = {"content": f"✅ A previsão de hoje foi gerada com sucesso!\nConfira na planilha: {url}"}
+    data = {"content": "✅ A previsão financeira de hoje foi gerada com sucesso e a planilha oficial foi atualizada!"}
     req = urllib.request.Request(
         webhook_url,
         data=json.dumps(data).encode("utf-8"),
@@ -856,6 +868,7 @@ def parse_args():
     parser.add_argument("--dry-run", action="store_true", help="Calcula e imprime as células sem abrir ERP ou Google Sheets")
     parser.add_argument("--data", help="Data base no formato YYYY-MM-DD; útil para dry-run e reprocessamentos controlados")
     parser.add_argument("--skip-erp", action="store_true", help="Pula o download do ERP e usa os ZIPs já existentes para preencher a planilha")
+    parser.add_argument("--visible", action="store_true", help="Abre o navegador visível para inspeção ou login manual do Google")
     return parser.parse_args()
 
 def parse_data_base(data_str):
@@ -863,7 +876,7 @@ def parse_data_base(data_str):
         return None
     return datetime.strptime(data_str, "%Y-%m-%d")
 
-async def executar_previsao(data_base_str=None, skip_erp=False, dry_run=False) -> dict:
+async def executar_previsao(data_base_str=None, skip_erp=False, dry_run=False, visible=False) -> dict:
     print("Iniciando Robô de Previsão...")
     data_base = parse_data_base(data_base_str) if isinstance(data_base_str, str) else data_base_str
     str_inicio, str_fim, aba_base, d_inicio, d_fim = calcular_datas(data_base)
@@ -896,11 +909,14 @@ async def executar_previsao(data_base_str=None, skip_erp=False, dry_run=False) -
     user_data_dir = os.path.join(local_app_data, "Automacao_Previsao", "sessao_nova")
     os.makedirs(user_data_dir, exist_ok=True)
 
+    browser_args = ["--start-maximized"] if visible else []
     async with async_playwright() as p:
         context = await p.chromium.launch_persistent_context(
             user_data_dir,
-            headless=True,
+            channel="chrome",
+            headless=not visible,
             viewport={"width": 1366, "height": 768},
+            args=browser_args,
         )
         page = context.pages[0] if context.pages else await context.new_page()
         page.on("dialog", lambda dialog: dialog.accept())
@@ -940,7 +956,7 @@ async def executar_previsao(data_base_str=None, skip_erp=False, dry_run=False) -
 
 async def main():
     args = parse_args()
-    res = await executar_previsao(data_base_str=args.data, skip_erp=args.skip_erp, dry_run=args.dry_run)
+    res = await executar_previsao(data_base_str=args.data, skip_erp=args.skip_erp, dry_run=args.dry_run, visible=args.visible)
     print(res)
 
 if __name__ == "__main__":

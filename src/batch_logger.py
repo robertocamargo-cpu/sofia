@@ -9,13 +9,16 @@ BATCH_FILE = os.path.join(DATA_DIR, "batch_history.json")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
-def carregar_historico_lotes() -> List[Dict[str, Any]]:
-    """Carrega o histórico de lotes gravado em JSON."""
+def carregar_historico_lotes(a_partir_de: Optional[str] = "2026-10-07") -> List[Dict[str, Any]]:
+    """Carrega o histórico de lotes gravado em JSON, filtrando a partir de 07/10/2026 por padrão."""
     if not os.path.exists(BATCH_FILE):
         return []
     try:
         with open(BATCH_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            lotes = json.load(f)
+            if a_partir_de:
+                return [l for l in lotes if (l.get("timestamp") or "") >= a_partir_de]
+            return lotes
     except Exception as e:
         print(f"[BatchLogger] Erro ao carregar historico: {e}")
         return []
@@ -24,7 +27,7 @@ def salvar_historico_lote(tipo: str, resumo: Dict[str, Any], arquivo: Optional[s
     """
     Grava a execução de um lote (VR, Adiantamento, Pagamento de Salários) no histórico persistente.
     """
-    historico = carregar_historico_lotes()
+    historico = carregar_historico_lotes(a_partir_de=None)
     
     agora = datetime.now()
     batch_id = f"{tipo.lower()}_{agora.strftime('%Y%m%d_%H%M%S')}"
