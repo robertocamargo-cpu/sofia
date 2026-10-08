@@ -3,6 +3,15 @@ from datetime import datetime, timedelta, time, date
 from collections import defaultdict
 import glob
 
+def parse_iso_dt(s: str) -> datetime:
+    clean = s.strip()
+    if len(clean) >= 24 and (clean[-5] in ('+', '-')) and clean[-3] != ':':
+        clean = clean[:-2] + ':' + clean[-2:]
+    try:
+        return datetime.fromisoformat(clean)
+    except Exception:
+        return datetime.strptime(clean[:19], '%Y-%m-%dT%H:%M:%S')
+
 def encontrar_mais_recente():
     arquivos = glob.glob("00004004330216717*.txt")
     if not arquivos:
@@ -82,7 +91,7 @@ def gerar_html(registros, colaboradores, horario_ref=time(8, 0), tolerancia_min=
             nao_encontrados.add(reg['emp_id'])
             continue
         try:
-            dt = datetime.fromisoformat(reg['ts'])
+            dt = parse_iso_dt(reg['ts'])
             reg['datetime'] = dt
         except:
             continue

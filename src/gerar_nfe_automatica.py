@@ -19,6 +19,8 @@ import database
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.path.join(BASE_DIR, "logs", "nfe_cron.log")
 LOCKS_DIR = os.path.join(BASE_DIR, "locks")
+os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+os.makedirs(LOCKS_DIR, exist_ok=True)
 
 log_handlers = [logging.FileHandler(LOG_PATH)]
 if sys.stdout and sys.stdout.isatty():
@@ -1178,7 +1180,7 @@ async def main():
                 logging.info("\n" + "="*50)
                 logging.info("PROCESSAMENTO CONCLUIDO")
                 logging.info("="*50)
-                if sys.stdin.isatty():
+                if __name__ == "__main__" and "--wait" in sys.argv:
                     input("\nPressione ENTER para fechar o navegador...")
                 await context.close()
                 return # Sucesso!

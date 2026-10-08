@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pdfplumber
 import re
 from datetime import datetime, date, timedelta

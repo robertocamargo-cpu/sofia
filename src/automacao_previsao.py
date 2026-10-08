@@ -706,11 +706,13 @@ async def atualizar_planilha(page, dados, valores_originais, data_base=None):
 
             # Aguardar login manual / redirecionamento se não redirecionou automaticamente para a planilha
             if not is_sheet_loaded():
-                print("Aguardando redirecionamento ou confirmação no navegador (até 90 segundos)...")
-                for _ in range(90):
+                print("Aguardando confirmação do 2FA no celular / redirecionamento (até 150 segundos)...")
+                for sec in range(150):
                     if is_sheet_loaded():
                         print("Login e redirecionamento detectados com sucesso!")
                         break
+                    if sec % 15 == 0 and sec > 0:
+                        print(f"Aguardando 2FA... ({sec}/150s) - URL atual: {page.url[:80]}")
                     await asyncio.sleep(1)
 
         except Exception as e:
@@ -940,10 +942,18 @@ async def executar_previsao(data_base_str=None, skip_erp=False, dry_run=False, v
 
             # 3. Google Sheets
             sucesso_planilha = await atualizar_planilha(page, dados, valores_originais, data_base=data_base)
-            if sucesso_planilha is not False:
-                enviar_aviso_discord(PLANILHA_URL)
+            if sucesso_planilha is False:
+                print("\n❌ Falha: A planilha oficial no Google Sheets não pôde ser atualizada.")
+                return {
+                    "sucesso": False,
+                    "periodo": f"{str_inicio} até {str_fim}",
+                    "aba": aba_hoje,
+                    "planilha_url": PLANILHA_URL,
+                    "mensagem": "Os relatórios foram extraídos do ERP com sucesso, mas o Google Sheets não carregou (verifique o login Google e 2FA)."
+                }
 
-            print("\nProcesso finalizado.")
+            enviar_aviso_discord(PLANILHA_URL)
+            print("\nProcesso finalizado com sucesso.")
             return {
                 "sucesso": True,
                 "periodo": f"{str_inicio} até {str_fim}",

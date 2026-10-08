@@ -159,18 +159,27 @@ async def _rodar_previsao_cron():
     from automacao_previsao import executar_previsao
     res = await executar_previsao()
     canal_id = os.getenv("DISCORD_PREVISAO_CHANNEL_ID") or os.getenv("DISCORD_ADMIN_CHANNEL_ID") or "1541880446600609902"
-    if canal_id and isinstance(res, dict) and res.get("sucesso"):
+    if canal_id and isinstance(res, dict):
         canal = bot.get_channel(int(canal_id))
         if canal:
-            embed = discord.Embed(
-                title="📊 Previsão Financeira Automática Concluída",
-                description="A previsão financeira do dia foi gerada e a planilha oficial foi atualizada com sucesso!",
-                color=0x2ecc71
-            )
-            embed.add_field(name="📅 Período", value=res.get("periodo", "Hoje"), inline=True)
-            embed.add_field(name="📑 Aba", value=res.get("aba", "Atual"), inline=True)
-            embed.set_footer(text="Super SofIA • Rotina Agendada das 09:30")
-            await canal.send(embed=embed)
+            if res.get("sucesso"):
+                embed = discord.Embed(
+                    title="📊 Previsão Financeira Automática Concluída",
+                    description="A previsão financeira do dia foi gerada e a planilha oficial foi atualizada com sucesso!",
+                    color=0x2ecc71
+                )
+                embed.add_field(name="📅 Período", value=res.get("periodo", "Hoje"), inline=True)
+                embed.add_field(name="📑 Aba", value=res.get("aba", "Atual"), inline=True)
+                embed.set_footer(text="Super SofIA • Rotina Agendada das 09:30")
+                await canal.send(embed=embed)
+            else:
+                embed_err = discord.Embed(
+                    title="⚠️ Falha na Atualização da Previsão Financeira",
+                    description=f"A rotina das 09:30 encontrou uma falha:\n```{res.get('mensagem', 'Falha ao atualizar a planilha')}```\n*💡 Dica: Verifique a sessão do Google executando `./renovar_sessao_google.sh`.*",
+                    color=0xe74c3c
+                )
+                embed_err.set_footer(text="Super SofIA • Rotina Agendada das 09:30")
+                await canal.send(embed=embed_err)
 
 # Armazena estado dos agendamentos para consulta no Discord
 agendamentos_status = {
@@ -232,6 +241,12 @@ async def on_ready():
     print(f"\n{'='*60}")
     print(f"  SUPER SOFIA ONLINE! Logado como: {bot.user.name} (ID: {bot.user.id})")
     print(f"  Todas as automações unificadas e prontas no Discord!")
+    print(f"{'='*60}")
+    print(f"[DISCORD] Servidores conectados ({len(bot.guilds)}):")
+    for g in bot.guilds:
+        print(f"  • Servidor: {g.name} (ID: {g.id})")
+        for ch in g.text_channels:
+            print(f"    - #{ch.name} (ID: {ch.id})")
     print(f"{'='*60}\n")
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="ADMSIS ERP & Financeiro"))
 
@@ -253,6 +268,10 @@ async def on_ready():
 
 @bot.event
 async def on_message(message: discord.Message):
+    # Log de diagnóstico para rastrear mensagens recebidas
+    canal_nome = getattr(message.channel, 'name', 'DM')
+    print(f"[DISCORD EVENTO] Canal: #{canal_nome} ({message.channel.id}) | Autor: {message.author} (Bot={message.author.bot}) | Conteúdo: {message.content!r}")
+
     # 1. Ignora IMEDIATAMENTE mensagens do próprio bot e de qualquer outro bot (evita loop infinito)
     if message.author == bot.user or message.author.bot:
         return
@@ -273,8 +292,28 @@ async def on_message(message: discord.Message):
     )
 
     foi_chamada = mencionado or chamou_por_nome or is_dm or is_reply_to_sofia
+    print(f"[DISCORD CHECK] #{canal_nome} | foi_chamada={foi_chamada} (mencionado={mencionado}, chamou_por_nome={chamou_por_nome}, is_dm={is_dm}, is_reply={is_reply_to_sofia})")
 
     if not foi_chamada:
+        return
+
+    # ── COMANDO DE STATUS / PING / LIVENESS ──────────────────────────────
+    if any(k in conteudo for k in ["status", "ping", "online", "vivo", "teste", "ta ai", "tá aí"]):
+        embed_status = discord.Embed(
+            title="🟢 Super SofIA - Sistema Online e Operacional",
+            description=(
+                "Olá! Estou conectada e pronta para processar operações financeiras, fiscais e administrativas no ERP ADMSIS.\n\n"
+                "• **Status:** Operacional ✅\n"
+                f"• **ERP ADMSIS:** Conectado (Usuário: `{os.getenv('ERP_USERNAME', 'N_Robotron')}`)\n"
+                "• **Trava de Concorrência (Lock):** Ativa e monitorando sessões\n"
+                "• **Agendador Cron:** Ativo (NF-e de hora em hora, GNRE às 10h/13h30/15h30, Previsão às 09h30)\n"
+                "• **Servidor de Métricas:** `http://localhost:8080/metricas`\n\n"
+                "💡 *Digite `@SofIA h` para ver todos os comandos disponíveis ou envie um boleto com `@SofIA lance este pagamento`.*"
+            ),
+            color=discord.Color.green()
+        )
+        embed_status.set_footer(text="Super SofIA • ADMSIS ERP")
+        await message.reply(embed=embed_status)
         return
 
     # Consulta de Histórico de Lotes Executados
@@ -1101,21 +1140,34 @@ async def on_message(message: discord.Message):
             return
 
     # ── 7. PONTO ELETRÔNICO (REP HENRY) ────────────────────────────────────
-    if any(k in conteudo for k in ["espelho de ponto", "consolidado de ponto", "ponto eletronico", "ponto eletrônico", "relatorio de ponto", "relatório de ponto", "ver ponto"]):
+    if any(k in conteudo for k in ["espelho de ponto", "consolidado de ponto", "ponto eletronico", "ponto eletrônico", "relatorio de ponto", "relatório de ponto", "ver ponto", "mostrar ponto", "mostrar o ponto", "fluxo do ponto", "ponto"]):
         status_msg = await message.reply("⏱️ **Processando Ponto Eletrônico Consolidado...**\nConsolidando marcações dos relógios 601 e Nevine e calculando jornada CLT...")
         try:
             from ponto_eletronico.gerar_consolidado import gerar_espelho_ponto_consolidado
+            from ponto_eletronico.resumo_discord import obter_resumo_ponto, gerar_embed_resumo_discord
+            
             caminho_html = await asyncio.to_thread(gerar_espelho_ponto_consolidado)
+            dados_resumo = await asyncio.to_thread(obter_resumo_ponto)
+            
             if os.path.exists(caminho_html):
-                embed_ponto = discord.Embed(
-                    title="⏱️ Espelho de Ponto Consolidado (601 + Nevine)",
-                    description="O relatório consolidado de ponto foi gerado com sucesso.\nSegue o arquivo interativo HTML em anexo para visualização no navegador.",
-                    color=discord.Color.blue()
-                )
-                embed_ponto.set_footer(text="Automação Ponto • Relógios REP Henry")
-                file_ponto = discord.File(caminho_html, filename="Espelho_Ponto_Consolidado.html")
+                embed_ponto = gerar_embed_resumo_discord(dados_resumo)
+                
+                arquivos = [discord.File(caminho_html, filename="Espelho_Ponto_Consolidado.html")]
+                
+                ponto_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "ponto_eletronico")
+                if not os.path.exists(ponto_dir):
+                    ponto_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ponto_eletronico")
+                
+                img_601 = os.path.join(ponto_dir, "espelho_matriz_601.png")
+                if os.path.exists(img_601):
+                    arquivos.append(discord.File(img_601, filename="espelho_matriz_601.png"))
+                
+                img_nevine = os.path.join(ponto_dir, "espelho_filial_nevine.png")
+                if os.path.exists(img_nevine):
+                    arquivos.append(discord.File(img_nevine, filename="espelho_filial_nevine.png"))
+                
                 await status_msg.delete()
-                await message.reply(embed=embed_ponto, file=file_ponto)
+                await message.reply(embed=embed_ponto, files=arquivos)
             else:
                 await status_msg.edit(content="❌ Não foi possível gerar o espelho de ponto consolidado.")
         except Exception as ex:
@@ -1334,8 +1386,14 @@ async def on_message(message: discord.Message):
         await message.reply(embed=embed_aviso)
         return
 
-    # Se não pediu ajuda e não há arquivos anexados, permanece em silêncio para não poluir o canal
+    # Se não pediu ajuda e não há arquivos anexados, responde de forma amigável
     if not message.attachments:
+        await message.reply(
+            "👋 Olá! Recebi sua solicitação, mas não identifiquei um comando direto ou documento anexado.\n\n"
+            "• Para ver a lista completa de comandos, digite: `@SofIA h`\n"
+            "• Para verificar o status do sistema, digite: `@SofIA status`\n"
+            "• Para lançar um pagamento, anexe o PDF e envie: `@SofIA lance este pagamento`"
+        )
         return
 
     # Processa cada anexo recebido

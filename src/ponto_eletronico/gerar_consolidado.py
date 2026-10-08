@@ -4,6 +4,15 @@ from collections import defaultdict
 
 BASE_PONTO_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def parse_iso_dt(s: str) -> datetime:
+    clean = s.strip()
+    if len(clean) >= 24 and (clean[-5] in ('+', '-')) and clean[-3] != ':':
+        clean = clean[:-2] + ':' + clean[-2:]
+    try:
+        return datetime.fromisoformat(clean)
+    except Exception:
+        return datetime.strptime(clean[:19], '%Y-%m-%dT%H:%M:%S')
+
 def parse_marc(arquivo):
     with open(arquivo, 'r', encoding='latin-1') as f:
         linhas = f.read().split('\n')
@@ -20,12 +29,20 @@ def parse_marc(arquivo):
             if m: regs.append({'ts': m.group(2), 'emp_id': m.group(3)})
     return regs
 
-def load_colabs(arquivo):
+def load_colabs(arquivo, afd_arquivo=None):
     cols = {}
-    with open(arquivo, 'r', encoding='latin-1') as f:
-        for linha in f:
-            m = re.match(r'1\+1\+I\[(\d+)\[([^\[]+)', linha)
-            if m: cols[m.group(1)] = m.group(2).strip()
+    if os.path.exists(arquivo):
+        with open(arquivo, 'r', encoding='latin-1') as f:
+            for linha in f:
+                m = re.match(r'1\+1\+I\[(\d+)\[([^\[]+)', linha)
+                if m: cols[m.group(1)] = m.group(2).strip()
+    if afd_arquivo and os.path.exists(afd_arquivo):
+        with open(afd_arquivo, 'r', encoding='latin-1') as f:
+            for linha in f:
+                m = re.match(r'^\d{9}5\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-\d{4}[IAE](\d{11})\s*([A-Za-zÀ-ÿ\s]+)', linha)
+                if m:
+                    cpf, nome = m.group(1), m.group(2).strip()
+                    cols[cpf] = nome
     return cols
 
 def normalizar(eid, colabs):
@@ -74,7 +91,7 @@ def gerar_espelho_ponto_consolidado(d_ini=None, d_fim=None, output_path=None) ->
     all_colabs = {}
 
     for dev_name, dev in devices.items():
-        colabs = load_colabs(dev["colab"])
+        colabs = load_colabs(dev["colab"], dev["marc"])
         regs = parse_marc(dev["marc"])
         
         # Register all colaboradores first (even with no markings)
@@ -88,7 +105,7 @@ def gerar_espelho_ponto_consolidado(d_ini=None, d_fim=None, output_path=None) ->
         # Build per-colaborador per-day data
         col_data = defaultdict(lambda: defaultdict(list))
         for r in regs:
-            dt = datetime.fromisoformat(r['ts']).date()
+            dt = parse_iso_dt(r['ts']).date()
             if d_ini <= dt <= d_fim:
                 col_data[r['emp_id']][dt].append(r['ts'])
         
@@ -113,13 +130,13 @@ def gerar_espelho_ponto_consolidado(d_ini=None, d_fim=None, output_path=None) ->
             prev_hm = PREV_HM[dow]
             
             tss = c["dias"].get(curr_str, [])
-            h_list = [datetime.fromisoformat(t).strftime('%H:%M') for t in tss]
+            h_list = [parse_iso_dt(t).strftime('%H:%M') for t in tss]
             
             trab_m = 0
             if len(tss) >= 2:
                 for i in range(0, len(tss) - 1, 2):
-                    t1 = datetime.fromisoformat(tss[i])
-                    t2 = datetime.fromisoformat(tss[i+1])
+                    t1 = parse_iso_dt(tss[i])
+                    t2 = parse_iso_dt(tss[i+1])
                     trab_m += int((t2 - t1).total_seconds() / 60)
             
             trab_hm = f"{trab_m//60:02d}:{trab_m%60:02d}" if trab_m > 0 else "-"
@@ -127,7 +144,7 @@ def gerar_espelho_ponto_consolidado(d_ini=None, d_fim=None, output_path=None) ->
             atraso = False
             atraso_str = ""
             if prev_m > 0 and len(tss) > 0:
-                t_prim = datetime.fromisoformat(tss[0]).time()
+                t_prim = parse_iso_dt(tss[0]).time()
                 if t_prim > hr_lim:
                     atraso = True
                     diff = (datetime.combine(curr, t_prim) - datetime.combine(curr, hr)).total_seconds() / 60
