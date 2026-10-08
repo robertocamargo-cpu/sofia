@@ -194,7 +194,7 @@ def enviar_discord(pdf_path, dados):
     for metodo, url, extra_headers in urls_to_try:
         headers = {
             "Content-Type": f"multipart/form-data; boundary={boundary}",
-            "User-Agent": "Mozilla/5.0 GNREAutomation/1.0",
+            "User-Agent": "DiscordBot (https://github.com, 1.0)",
             "Accept": "application/json",
         }
         headers.update(extra_headers)
@@ -250,7 +250,7 @@ def enviar_alerta_discord(mensagem):
     for metodo, url, extra_headers in urls_to_try:
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 GNREAutomation/1.0",
+            "User-Agent": "DiscordBot (https://github.com, 1.0)",
             "Accept": "application/json",
         }
         headers.update(extra_headers)

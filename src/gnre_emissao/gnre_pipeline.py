@@ -90,12 +90,37 @@ AMANHA = HOJE + timedelta(days=1)
 # ============================================================
 # 1. PLANILHA
 # ============================================================
+def obter_gid_aba_vigente(sheet_id=SHEET_ID):
+    """Descobre dinamicamente o GID da aba do mês atual (ex: Outubro, Novembro)."""
+    try:
+        meses_pt = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ]
+        mes_atual = meses_pt[datetime.now().month - 1].upper()
+
+        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            html = resp.read().decode("utf-8", "ignore")
+
+        tabs = re.findall(r'\[10,0,\\\\?"(\d+)\\\\?",\[\{\\\\?"1\\\\?":\[\[0,0,\\\\?"([^\\\\\"]+)\\\\?"', html)
+        for gid, nome_aba in tabs:
+            if nome_aba.strip().upper() == mes_atual:
+                return gid
+    except Exception as e:
+        print(f"  [AVISO] Falha ao detectar GID da aba vigente: {e}")
+    return os.getenv("GNRE_SHEET_GID") or "1717194025"
+
+
 def baixar_planilha(ultimas_n=None):
     import socket
     socket.setdefaulttimeout(30)
     tmp = os.path.join(tempfile.gettempdir(), 'planilha_gnre.csv')
+    gid_vigente = obter_gid_aba_vigente(SHEET_ID)
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={gid_vigente}"
     try:
-        urllib.request.urlretrieve(SHEET_URL, tmp)
+        urllib.request.urlretrieve(sheet_url, tmp)
     except Exception as e:
         print(f"  [ERRO] Falha ao baixar planilha Google Sheets ({e}).")
         enviar_alerta_discord(f"⚠️ GNRE: Falha ao baixar planilha Google Sheets: {e}")
