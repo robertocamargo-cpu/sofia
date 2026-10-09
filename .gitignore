@@ -42,3 +42,4 @@ data/*_backup_*.json
 .vscode/
 .idea/
 .DS_Store
+src/gnre_emissao/gnre/

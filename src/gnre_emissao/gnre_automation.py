@@ -1120,9 +1120,9 @@ def processar_gnre(dados, use_cdp=False, use_camoufox=False, persistent_camoufox
                 elif page.locator('input[name="tipoContribuinteDestinatario"][value="false"]').count() > 0:
                     page.locator('input[name="tipoContribuinteDestinatario"][value="false"]').click()
                     print(f"  Contribuinte Destinatário: NÃO (radio value=false)")
-                elif page.locator('input[name*="tipoContribuinte"]').count() > 0:
+                elif page.locator('input[name*="tipoContribuinteDestinatario"]').count() > 0:
                     page.evaluate("""() => {
-                        var radios = document.querySelectorAll('input[name*="tipoContribuinte"]');
+                        var radios = document.querySelectorAll('input[name*="tipoContribuinteDestinatario"]');
                         for (var r of radios) {
                             var id = (r.id || '').toLowerCase();
                             if (r.value === 'false' || r.value === 'N' || id.includes('nao') || id.includes('não')) {
@@ -1136,19 +1136,19 @@ def processar_gnre(dados, use_cdp=False, use_camoufox=False, persistent_camoufox
             except Exception as e:
                 print(f"  [AVISO] Contribuinte Destinatário NÃO: {e}")
 
-        if uf_contrib in ufs_contrib_sim or (uf_contrib == "CE" and ie_dest) or (uf_contrib not in ("RJ", "DF", "CE", "BA") and ie_dest):
+        if uf_contrib in ufs_contrib_sim or (uf_contrib == "CE" and ie_dest) or (uf_contrib not in ("RJ", "DF", "CE", "BA", "SC") and ie_dest):
             try:
                 rm_overlay()
-                # Tenta clicar no radio SIM do Contribuinte Destinatário
+                # Tenta clicar no radio SIM do Contribuinte Destinatário (NUNCA no emitente!)
                 if page.locator('#optInscritoDest').count() > 0:
                     page.click('#optInscritoDest')
                     print(f"  Contribuinte Destinatário: SIM (#optInscritoDest)")
-                elif page.locator('input[name="tipoContribuinteDestinatario"][value="true"]').count() > 0:
-                    page.locator('input[name="tipoContribuinteDestinatario"][value="true"]').click()
-                    print(f"  Contribuinte Destinatário: SIM (radio value=true)")
-                elif page.locator('input[name*="tipoContribuinte"]').count() > 0:
+                elif page.locator('input[name="tipoContribuinteDestinatario"][value="true"], input[name="tipoContribuinteDestinatario"][value="S"]').count() > 0:
+                    page.locator('input[name="tipoContribuinteDestinatario"][value="true"], input[name="tipoContribuinteDestinatario"][value="S"]').first.click()
+                    print(f"  Contribuinte Destinatário: SIM (radio value=true/S)")
+                elif page.locator('input[name*="tipoContribuinteDestinatario"]').count() > 0:
                     page.evaluate("""() => {
-                        var radios = document.querySelectorAll('input[name*="tipoContribuinte"]');
+                        var radios = document.querySelectorAll('input[name*="tipoContribuinteDestinatario"]');
                         for (var r of radios) {
                             if (r.value === 'true' || r.value === 'S' || r.id.includes('Sim')) {
                                 r.click(); break;
@@ -1160,7 +1160,7 @@ def processar_gnre(dados, use_cdp=False, use_camoufox=False, persistent_camoufox
             except Exception as e:
                 print(f"  [AVISO] Contribuinte Destinatário SIM: {e}")
 
-            # Preenche IE do destinatário
+            # Preenche IE do destinatário (apenas campos que pertençam ao destinatário)
             if ie_dest:
                 try:
                     if page.locator('#ieDestinatario').count() > 0:
@@ -1169,13 +1169,31 @@ def processar_gnre(dados, use_cdp=False, use_camoufox=False, persistent_camoufox
                     elif page.locator('#inscricaoEstadualDestinatario').count() > 0:
                         page.fill('#inscricaoEstadualDestinatario', ie_dest)
                         print(f"  IE Destinatário preenchida via #inscricaoEstadualDestinatario: {ie_dest}")
-                    else:
-                        ie_field = page.locator('input[name*="ie" i], input[name*="inscricao" i], input[id*="ie" i], input[id*="inscricao" i]').first
-                        if ie_field.count() > 0:
-                            ie_field.fill(ie_dest)
-                            print(f"  IE Destinatário preenchida (fallback): {ie_dest}")
+                    elif page.locator('input[name*="ie" i][name*="dest" i], input[name*="inscricao" i][name*="dest" i], input[id*="ie" i][id*="dest" i], input[id*="inscricao" i][id*="dest" i]').count() > 0:
+                        page.locator('input[name*="ie" i][name*="dest" i], input[name*="inscricao" i][name*="dest" i], input[id*="ie" i][id*="dest" i], input[id*="inscricao" i][id*="dest" i]').first.fill(ie_dest)
+                        print(f"  IE Destinatário preenchida (fallback seguro dest): {ie_dest}")
                 except Exception as e:
                     print(f"  [AVISO] IE Destinatário: {e}")
+
+        # === Trava de Segurança: Garantir que o Emitente NUNCA foi alterado para Inscrito ===
+        try:
+            emit_sim = page.locator('#optInscrito')
+            emit_nao = page.locator('#optNaoInscrito')
+            if emit_sim.count() > 0 and emit_sim.is_checked():
+                print("  [ALERTA DE SEGURANÇA] Emitente estava marcado como SIM indevidamente! Restaurando para NÃO...")
+                emit_nao.click()
+                page.wait_for_timeout(1000)
+                # Re-preenche dados do emitente se necessário
+                if page.locator('#documentoEmitente').count() > 0 and not page.locator('#documentoEmitente').input_value():
+                    page.fill('#documentoEmitente', dados["cnpj"])
+                if page.locator('#razaoSocialEmitente').count() > 0 and not page.locator('#razaoSocialEmitente').input_value():
+                    page.fill('#razaoSocialEmitente', dados["razao_social"])
+                if page.locator('#enderecoEmitente').count() > 0 and not page.locator('#enderecoEmitente').input_value():
+                    page.fill('#enderecoEmitente', dados["endereco"])
+                if page.locator('#ufEmitente').count() > 0 and not page.locator('#ufEmitente').input_value():
+                    page.select_option('#ufEmitente', dados["uf_emitente"])
+        except Exception as e_emit:
+            print(f"  [AVISO] Verificação trava Emitente: {e_emit}")
 
         _uf_path = get_uf_path(dados.get("uf_favorecida", ""))
         try:
@@ -1789,7 +1807,10 @@ def processar_gnre(dados, use_cdp=False, use_camoufox=False, persistent_camoufox
         except Exception as e:
             print("  [ERRO] Não foi possível encontrar a tela de confirmação ou o botão Emitir:", e)
 
-        page.wait_for_timeout(60000)
+        if pdf_path:
+            page.wait_for_timeout(2000)
+        else:
+            page.wait_for_timeout(5000)
         if not use_cdp_browser:
             browser.close()
         else:
